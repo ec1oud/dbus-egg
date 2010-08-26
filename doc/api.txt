@@ -1,0 +1,97 @@
+Goals:
+
+- discover services locally and on nearby machines (probably needs avahi)
+- send signals
+- make IPC calls and get return values
+- preserve asynchronicity (return value must come back via a callback)
+- assign a path to a Scheme object
+- map "methods" to generic functions (using tinyclos)
+- create proxy objects matching remote objects (but calling a method on a proxy is usually synchronous: it waits for the reply)
+- publish services with such paths and methods
+- the code necessary for a user to do any of these should be minimal:
+  abstract away orthogonal extra steps like connection management
+
+DBUS in general
+---------------
+bus: session or system or app-specific bus
+
+service: like a reversed domain name (can be omitted for an app-specific bus):
+	the destination of a message; AKA "bus name" (it's optional)
+
+path: like the path part of a URL (can be omitted for an app-specific bus):
+	hierarchical organization of messages within an app
+
+interface: like an abstract class or Java interface, but also has a dot-separated name (it's optional)
+
+member name: the name of a signal (message), or the name of the method intended to receive it
+
+Example of monitoring output from the feathers example:
+( http://www.linuxjournal.com/article/7744 )
+
+signal sender=:1.120 -> dest=(null destination) path=/org/pirate/parrot/attr; interface=org.pirate.parrot.attr; member=Feathers
+   string "Shiny"
+   string "Well Groomed"
+
+it's kindof a muddled example though.
+
+From the QT chat example:
+
+signal sender=:1.43 -> dest=(null destination) path=/; interface=com.trolltech.chat; member=message
+   string "foo"
+   string "bar!"
+
+The dest is null which means this is one-to-many communication.
+Path might mean something to the app (but chat didn't need it).
+
+From the QT remote-controlled-car example:
+
+the "Car" app does a NameOwnerChanged to set his own name to com.trolltech.CarExample;
+then the controller sends messages just to that service:
+
+method call sender=:1.49 -> dest=com.trolltech.CarExample path=/Car; interface=com.trolltech.Examples.CarInterface; member=turnRight
+
+
+API for the dbus egg
+--------------------
+
+Send a signal:
+
+(dbus:send
+	context
+	'message 				;; member name is required
+	"foo" "bar!")			;; parameters are optional
+
+(define rc-car-context (dbus:make-context
+	bus: dbus:session-bus 	;; would be the session-bus by default anyway
+	service: 'com.trolltech.CarExample
+	interface: 'com.trolltech.Examples.CarInterface
+	path: '/Car))
+
+(dbus:send rc-car-context 'turnRight)
+
+conceivably could also specify named parameters, but they would have to be
+matched up with a declared interface (e.g. com.trolltech.chat.xml)
+because they can't be sent that way across dbus (?): dbus parameters are order-dependent
+
+
+Publish the existence of a member:
+
+
+
+Register for callbacks when a message is received:
+
+(define (receive-message nickname text)
+	(printf ....))
+(dbus:register-method dbus:session-bus 'com.trolltech.chat '/ 'message receive-message)
+
+or maybe registering the interface would have been a separate step, so as to only do it once for any number of methods.
+Or that could be an internal detail... if the interface for a method is not yet registered, then do that first.
+
+
+Register a tinyclos object on a path:
+
+
+Disconnect from the message bus:
+(hopefully this wouldn't even be necessary... should be automatic)
+
+(dbus:disconnect dbus:session-bus)

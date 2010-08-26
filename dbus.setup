@@ -1,0 +1,36 @@
+;;;; dbus.setup -*- Scheme -*-
+
+(use files utils)
+
+(define prefix (installation-prefix))
+(define libpath (make-pathname prefix "lib"))
+(define incpath (make-pathname prefix "include"))
+(define binpath (make-pathname prefix "bin"))
+(define csc (make-pathname binpath "csc"))
+
+(make (("dbus.import.so" ("dbus.c")
+	(run (,csc -s -O3 -d0 dbus.import.scm)))
+       ("dbus.so" ("dbus.c")
+	(run (,csc -s -O3 -d1 dbus.scm
+		   -ldbus-1 -I/usr/include/dbus-1.0/ -I/usr/lib/dbus-1.0/include)))
+       ("dbus.c" ("dbus.scm")
+	(run (,csc -t dbus.scm -O3 -d1 -X easyffi -C -g -j dbus))))
+ '("dbus.so" "dbus.import.so"))
+
+(install-extension 'dbus
+		   `("dbus.so" "dbus.import.so")
+		   `((version 0.86)
+		     (examples
+		      "examples/introspect-avahi.scm"
+		      "examples/introspect-services.scm"
+		      "examples/receive-car-turn.scm"
+		      "examples/send-example-query.scm"
+		      "examples/introspect-hal.scm"
+		      "examples/listen-example.scm"
+		      "examples/receive-signal.scm"
+		      "examples/send-signal.scm"
+		      "examples/introspect-phonekit.scm"
+		      "examples/paranoid-android.scm"
+		      "examples/send-car-turn.scm")))
+
+;; pkg-config dbus-1 --cflags
