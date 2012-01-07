@@ -3,16 +3,14 @@
 (use files utils)
 
 (make (("dbus.import.so" ("dbus.c")
-	(run (csc -s -O3 -d0 dbus.import.scm)))
+	(compile -s -O3 -d0 dbus.import.scm))
        ("dbus.so" ("dbus.c")
-	(run (csc -s -O3 -d1 dbus.scm
-		   -ldbus-1 -I/usr/include/dbus-1.0/ -I/usr/lib/dbus-1.0/include)))
+	(compile -s -O3 -d1 dbus.scm ,(with-input-from-pipe "pkg-config --cflags dbus-1" read-line) -ldbus-1))
        ("dbus.c" ("dbus.scm")
-	(run (csc -t dbus.scm -O3 -d1 -X easyffi -C -g -j dbus))))
+	(compile -t dbus.scm -O3 -d1 -X easyffi -C -g -j dbus)))
  '("dbus.so" "dbus.import.so"))
 
 (install-extension 'dbus
 		   `("dbus.so" "dbus.import.so")
-		   `((version 0.87)))
+		   `((version 0.88)))
 
-;; pkg-config dbus-1 --cflags
