@@ -3,27 +3,40 @@
 (define ctxt (dbus:make-context
 	bus: dbus:system-bus
 	service: 'net.connman
-	;path: '/net/connman
 ))
 
-(let ([response (dbus:discover-api-xml ctxt)])
-	(display response)
-)
+(display (dbus:discover-api-xml ctxt))
+
+(define (device-properties device)
+  (let ((c (dbus:make-context bus: dbus:system-bus
+			      service: 'net.connman
+			      interface: 'net.connman.Service
+			      path: device)))
+    (dbus:call c "GetProperties")))
 
 (define mgr-ctxt (dbus:make-context bus: dbus:system-bus
 	service: 'net.connman interface: 'net.connman.Manager))
 
-(printf "~%==== Manager Properties:~%")
-(pretty-print (dbus:call mgr-ctxt "GetProperties"))
+(printf "~%==== Clock Properties:~%")
+(define clock-ctxt (dbus:make-context bus: dbus:system-bus
+	service: 'net.connman interface: 'net.connman.Clock))
+(pretty-print (dbus:call clock-ctxt "GetProperties"))
 
 (printf "~%==== Manager Services:~%")
 (pretty-print (dbus:call mgr-ctxt "GetServices"))
 
-(define clock-ctxt (dbus:make-context bus: dbus:system-bus
-	service: 'net.connman interface: 'net.connman.Clock))
-
-(printf "~%==== Clock Properties:~%")
-(pretty-print (dbus:call clock-ctxt "GetProperties"))
+(printf "~%==== Manager Properties:~%")
+(let ([mgr-props (dbus:call mgr-ctxt "GetProperties")])
+	(pretty-print mgr-props)
+	(let ([ifaces (assoc "Services" (vector->list (car mgr-props)))])
+		(when (pair? ifaces)
+			(set! ifaces (vector->list (cdr ifaces)))
+(printf "~%==== Network interface Properties:~%")
+			(for-each (lambda (path)
+					(printf "---- ~a~%" path)
+					(pp (vector->list (car (device-properties path))))
+				) ifaces)
+		)))
 
 (sleep 1)
 (exit)
