@@ -2,15 +2,15 @@
 
 (use files utils)
 
-(make (("dbus.import.so" ("dbus.c")
-	(compile -s -O3 -d0 dbus.import.scm))
-       ("dbus.so" ("dbus.c")
-	(compile -s -O3 -d1 dbus.scm -C "`pkg-config --cflags dbus-1`" -L "`pkg-config --libs dbus-1`"))
-       ("dbus.c" ("dbus.scm")
-	(compile -t dbus.scm -O3 -d1 -X easyffi -C -g -j dbus)))
- '("dbus.so" "dbus.import.so"))
+(make (
+		("dbus.import.so" ("dbus.c")
+			(compile -s -O3 -d0 dbus.import.scm))
+		("dbus.so" ("dbus.c")
+			(compile -s -O3 -d1 dbus.scm -C "`pkg-config --cflags dbus-1`" -L "`pkg-config --libs dbus-1`"))
+		("dbus.c" ("dbus.scm")
+			(compile -t dbus.scm -O3 -d1 -X easyffi -C -g -j dbus)))
+	'("dbus.so" "dbus.import.so"))
 
 (install-extension 'dbus
-		   `("dbus.so" "dbus.import.so")
-		   `((version 0.88)))
-
+	`("dbus.so" "dbus.import.so")
+	`((version 0.88)))

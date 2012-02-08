@@ -84,11 +84,12 @@
 (define dbus:type-string  (foreign-value DBUS_TYPE_STRING int))
 (define dbus:type-string-string  (foreign-value DBUS_TYPE_STRING_AS_STRING int))
 (define dbus:type-object-path  (foreign-value DBUS_TYPE_OBJECT_PATH int))
-(define dbus:type-object-path-string  (foreign-value DBUS_TYPE_OBJECT_PATH_AS_STRING int))
 (define dbus:type-signature  (foreign-value DBUS_TYPE_SIGNATURE int))
 (define dbus:type-signature-string  (foreign-value DBUS_TYPE_SIGNATURE_AS_STRING int))
 (define dbus:type-array (foreign-value DBUS_TYPE_ARRAY int))
 (define dbus:type-array-string  (foreign-value DBUS_TYPE_ARRAY_AS_STRING int))
+(define dbus:type-dict  (foreign-value DBUS_TYPE_DICT_ENTRY int))
+(define dbus:type-variant (foreign-value DBUS_TYPE_VARIANT int))
 
 (define dbus:make-context)
 (define dbus:send)
@@ -307,7 +308,7 @@
 			"C_return (dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT64, &v));"))
 
 	;; TODO: iter-append-basic-T for each possible type:
-	;; especially array, variant and struct might be possible
+	;; especially variant, array and struct might still be possible
 
 	;; val would usually be a single value, but
 	;; could be a pair of the form (dbus:type-x . value)
@@ -347,7 +348,7 @@
 						message-iter-ptr) iter)] )
 			(cond
 				[(memq type `(,dbus:type-string ,dbus:type-invalid-string
-								,dbus:type-string-string ,dbus:type-object-path-string
+								,dbus:type-string-string ,dbus:type-object-path
 								,dbus:type-signature-string
 								;; TODO maybe the following types ought to be converted?
 								,dbus:type-byte-string ,dbus:type-boolean-string
@@ -387,10 +388,15 @@
 						C_return (ret);") iter)]
 				[(eq? type dbus:type-array)
 					(iter->vector (make-sub-iter iter))]
+				[(eq? type dbus:type-dict)
+					(iter->pair (make-sub-iter iter))]
+				[(eq? type dbus:type-variant)
+					((make-sub-iter iter))]
 				;; unsupported so far (not understood well enough):
 				;; 	dbus:type-object-path and dbus:type-signature
 				;; dbus:type-invalid is returned as #f (could be (void) but that
 				;; would be the termination condition for the iterator)
+				;[else (format "unsupported-~c" (integer->char type))] )))
 				[else #f] )))
 
 	(define (make-sub-iter iter)
@@ -439,6 +445,9 @@
 				(if (eq? next iterm)
 					(reverse retval)
 					(loop (cons next retval))))))
+
+	(define (iter->pair iter)
+		(cons (iter) (iter)))
 
 	(define (iter->vector iter)
 		(let ([l (iter->list iter)])
@@ -710,5 +719,4 @@
 			(let ([xml (dbus:call ctxt "Introspect")])
 				(and (pair? xml) (car xml))))))
 
-)
-)
+)) ;; end module
