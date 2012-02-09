@@ -1,4 +1,4 @@
-(use dbus)
+(use (prefix dbus dbus:))
 
 (define (turn-right) (printf "car is turning to the right~%"))
 (define (turn-left) (printf "car is turning to the left~%"))

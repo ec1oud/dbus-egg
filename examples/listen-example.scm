@@ -1,4 +1,4 @@
-(use dbus)
+(use (prefix dbus dbus:))
 
 (define (query . params)
 	(printf "got a query; params: ~s~%" params)
