@@ -11,13 +11,18 @@
 	      dbus:discover-services
 	      dbus:discover-api-xml
 	      dbus:dbus-service
-	      dbus:type-uint32
 	      dbus:session-bus
 	      dbus:system-bus
 	      dbus:starter-bus
 	      dbus:known-bus-count
-	      dbus:register-path)
-	(import scheme chicken
+	      dbus:register-path
+		  unsupported-type?
+		  unsupported-type-signature
+		  variant?
+		  variant-data
+		  make-variant
+		  auto-unbox-variants)
+	(import scheme chicken extras
 		(except foreign foreign-declare)
 		foreigners
 		easyffi
@@ -34,6 +39,34 @@
 
 	static DBusError err;
 <#
+
+;; A disjoint type to represent any kind of dbus data type
+;; which this egg so far does not support.  The signature
+;; is the ASCII string to represent that type on-the-wire.
+(define-record-type unsupported-type
+	(make-unsupported-type signature)
+	unsupported-type?
+	(signature unsupported-type-signature))
+(define-record-printer (unsupported-type d out)
+	(fprintf out "#<unsupported-type ~a>" (unsupported-type-signature d)))
+
+;; Scheme is a dynamically typed language, so fundamentally we don't
+;; have a use for the "variant" concept; but since dbus has a variant type,
+;; we need a way of representing one when preparing a message for marshalling.
+;; So, it might as well be symmetric, putting any variant returned from
+;; a dbus call into this type as well.
+(define-record-type variant
+	(make-variant data)
+	variant?
+	(data variant-data))
+(define-record-printer (variant v out)
+	(fprintf out "#,(variant ~S)" (variant-data v)))
+;; If unboxing is turned on, when a "call"ed dbus service method
+;; returns a variant, it will look as if it was not packaged in a variant at all.
+;; By default this feature is turned off, in the interest of having a
+;; representation that is the same as you will need to build when
+;; you want to send (marshall) a dbus message.
+(define auto-unbox-variants (make-parameter #f))
 
 ; Would want to do this:
 ; (define-foreign-enum (dbus:bus (enum "DBusBusType"))
@@ -391,13 +424,14 @@
 				[(eq? type dbus:type-dict)
 					(iter->pair (make-sub-iter iter))]
 				[(eq? type dbus:type-variant)
-					((make-sub-iter iter))]
+					(if (auto-unbox-variants)
+						((make-sub-iter iter))
+						(make-variant ((make-sub-iter iter))))]
 				;; unsupported so far (not understood well enough):
 				;; 	dbus:type-object-path and dbus:type-signature
 				;; dbus:type-invalid is returned as #f (could be (void) but that
 				;; would be the termination condition for the iterator)
-				;[else (format "unsupported-~c" (integer->char type))] )))
-				[else #f] )))
+				[else (make-unsupported-type (integer->char type))] )))
 
 	(define (make-sub-iter iter)
 		(let* ([sub ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter))

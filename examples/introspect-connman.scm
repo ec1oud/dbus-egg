@@ -26,6 +26,7 @@
 (pretty-print (dbus:call mgr-ctxt "GetServices"))
 
 (printf "~%==== Manager Properties:~%")
+(auto-unbox-variants #t)
 (let ([mgr-props (dbus:call mgr-ctxt "GetProperties")])
 	(pretty-print mgr-props)
 	(let ([ifaces (assoc "Services" (vector->list (car mgr-props)))])
