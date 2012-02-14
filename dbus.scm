@@ -92,32 +92,20 @@
 
 ;; DBus simple data types
 (define type-invalid (foreign-value DBUS_TYPE_INVALID int))
-(define type-invalid-string (foreign-value DBUS_TYPE_INVALID_AS_STRING int))
 (define type-byte  (foreign-value DBUS_TYPE_BYTE int))
-(define type-byte-string  (foreign-value DBUS_TYPE_BYTE_AS_STRING int))
 (define type-boolean  (foreign-value DBUS_TYPE_BOOLEAN int))
-(define type-boolean-string  (foreign-value DBUS_TYPE_BOOLEAN_AS_STRING int))
 (define type-int16  (foreign-value DBUS_TYPE_INT16 int))
-(define type-int16-string  (foreign-value DBUS_TYPE_INT16_AS_STRING int))
 (define type-uint16  (foreign-value DBUS_TYPE_UINT16 int))
-(define type-uint16-string  (foreign-value DBUS_TYPE_UINT16_AS_STRING int))
 (define type-fixnum (foreign-value DBUS_TYPE_INT32 int))
 (define type-int32  (foreign-value DBUS_TYPE_INT32 int))
-(define type-int32-string  (foreign-value DBUS_TYPE_INT32_AS_STRING int))
 (define type-uint32  (foreign-value DBUS_TYPE_UINT32 int))
-(define type-uint32-string  (foreign-value DBUS_TYPE_UINT32_AS_STRING int))
 (define type-int64  (foreign-value DBUS_TYPE_INT64 int))
-(define type-int64-string  (foreign-value DBUS_TYPE_INT64_AS_STRING int))
 (define type-uint64  (foreign-value DBUS_TYPE_UINT64 int))
-(define type-uint64-string  (foreign-value DBUS_TYPE_UINT64_AS_STRING int))
 (define type-double  (foreign-value DBUS_TYPE_DOUBLE int))
 (define type-flonum  (foreign-value DBUS_TYPE_DOUBLE int))
-(define type-double-string  (foreign-value DBUS_TYPE_DOUBLE_AS_STRING int))
 (define type-string  (foreign-value DBUS_TYPE_STRING int))
-(define type-string-string  (foreign-value DBUS_TYPE_STRING_AS_STRING int))
 (define type-object-path  (foreign-value DBUS_TYPE_OBJECT_PATH int))
 (define type-signature  (foreign-value DBUS_TYPE_SIGNATURE int))
-(define type-signature-string  (foreign-value DBUS_TYPE_SIGNATURE_AS_STRING int))
 (define type-array (foreign-value DBUS_TYPE_ARRAY int))
 (define type-dict  (foreign-value DBUS_TYPE_DICT_ENTRY int))
 (define type-variant (foreign-value DBUS_TYPE_VARIANT int))
@@ -426,15 +414,7 @@
 						message-iter-ptr) iter)] )
 			; (printf "iter-cond type ~s~%" type)
 			(cond
-				[(memq type `(,type-string ,type-invalid-string
-								,type-string-string ,type-object-path
-								,type-signature-string
-								;; TODO maybe the following types ought to be converted?
-								,type-byte-string ,type-boolean-string
-								,type-int16-string ,type-uint16-string
-								,type-int32-string ,type-uint32-string
-								,type-int64-string ,type-uint64-string
-								,type-double-string ))
+				[(memq type `(,type-string ,type-object-path))
 					((foreign-lambda* c-string ((message-iter-ptr iter))
 						"char* ret = NULL;
 						dbus_message_iter_get_basic(iter, &ret);
