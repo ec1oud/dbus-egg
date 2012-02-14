@@ -1,34 +1,33 @@
 ;;;; dbus.scm
 
 (module dbus (make-context
-	      send
-	      call
-	      make-method-proxy
-	      register-signal-handler
-	      register-method
-	      enable-polling-thread!
-	      poll-for-message
-	      discover-services
-	      discover-api-xml
-	      dbus-service
-	      session-bus
-	      system-bus
-	      starter-bus
-	      known-bus-count
-	      register-path
-		  unsupported-type?
-		  unsupported-type-signature
-		  variant?
-		  variant-data
-		  make-variant
-		  auto-unbox-variants)
+		send
+		call
+		make-method-proxy
+		register-signal-handler
+		register-method
+		enable-polling-thread!
+		poll-for-message
+		discover-services
+		discover-api-xml
+		dbus-service
+		session-bus
+		system-bus
+		starter-bus
+		known-bus-count
+		register-path
+		unsupported-type?
+		unsupported-type-signature
+		variant?
+		variant-data
+		make-variant
+		auto-unbox-variants)
 	(import scheme chicken extras
 		(except foreign foreign-declare)
 		foreigners
 		easyffi
 		miscmacros)
 	(use srfi-18)
-
 
 #>
 	#include <dbus/dbus.h>
@@ -48,13 +47,11 @@
 	unsupported-type?
 	(signature unsupported-type-signature))
 (define-record-printer (unsupported-type d out)
-	(fprintf out "#<unsupported-type ~a>" (unsupported-type-signature d)))
+	(fprintf out "#<unsupported-type ~s>" (unsupported-type-signature d)))
 
 ;; Scheme is a dynamically typed language, so fundamentally we don't
 ;; have a use for the "variant" concept; but since dbus has a variant type,
 ;; we need a way of representing one when preparing a message for marshalling.
-;; So, it might as well be symmetric, putting any variant returned from
-;; a dbus call into this type as well.
 (define-record-type variant
 	(make-variant data)
 	variant?
@@ -65,7 +62,9 @@
 ;; returns a variant, it will look as if it was not packaged in a variant at all.
 ;; By default this feature is turned off, in the interest of having a
 ;; representation that is the same as you will need to build when
-;; you want to send (marshall) a dbus message.
+;; you want to send (marshall) a dbus message.  But probably
+;; you want to turn it on for convenience, if you don't care to know
+;; about this low-level detail.
 (define auto-unbox-variants (make-parameter #f))
 
 ; Would want to do this:
@@ -120,7 +119,6 @@
 (define type-signature  (foreign-value DBUS_TYPE_SIGNATURE int))
 (define type-signature-string  (foreign-value DBUS_TYPE_SIGNATURE_AS_STRING int))
 (define type-array (foreign-value DBUS_TYPE_ARRAY int))
-(define type-array-string  (foreign-value DBUS_TYPE_ARRAY_AS_STRING int))
 (define type-dict  (foreign-value DBUS_TYPE_DICT_ENTRY int))
 (define type-variant (foreign-value DBUS_TYPE_VARIANT int))
 
@@ -191,12 +189,11 @@
 		[iterm (gensym 'terminiter)] )
 
     (define (any->string arg)
-      (if (string? arg)
-	arg
-	(if (eq? (void) arg)
-	  ""
-	  (format "~a" arg)
-	)))
+		(if (string? arg)
+			arg
+			(if (eq? (void) arg)
+			  ""
+			  (format "~a" arg))))
 
 	(define (symbol?->string arg)
 		(if (symbol? arg)
@@ -340,6 +337,53 @@
 		(foreign-lambda* bool ((message-iter-ptr iter) (integer64 v))
 			"C_return (dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT64, &v));"))
 
+	;; todo efficient
+	(define (char->string ch) (format "~a" ch))
+
+	(define (value-signature val)
+		(cond
+			[(fixnum? val) (char->string type-fixnum)]
+			[(flonum? val) (char->string type-flonum)]
+			[(boolean? val) (char->string type-boolean)]
+			[(variant? val) (value-signature (variant-data val))]
+			; todo: recursive
+			; [(pair? val)
+		))
+
+	(define (iter-append-basic-variant iter val)
+		(let ([signature (value-signature val)])
+		; (let ([append-fn #f][signature ""])
+			; (cond
+				; todo signature should be a string; need to handle complex types nested in variants too
+				; [(fixnum? val)
+					; (set! append-fn iter-append-basic-int)
+					; (set! signature type-fixnum)]
+				; [(flonum? val)
+					; (set! append-fn iter-append-basic-double)
+					; (set! signature type-flonum)]
+				; [(boolean? val)
+					; (set! append-fn iter-append-basic-bool)
+					; (set! signature type-boolean)]
+				; [(variant? val)
+					; (set! append-fn iter-append-basic-variant)
+					; (set! signature type-variant)] )
+				;; todo: for a list, how would I know the composite signature until having done the append?
+				; [(pair? val)
+					; (set! append-fn iter-append-basic)
+					; (set! signature type-variant)] )
+			(let ([container ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter) (c-string signature))
+					"DBusMessageIter value;
+					dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, signature, &value);
+					C_return(&value);") iter signature)])
+				(iter-append-basic container val)
+				((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
+					"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) ))
+
+; (foreign-lambda* bool ((message-iter-ptr iter) (integer64 v))
+			; "dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, signature, &value);
+			; dbus_message_iter_append_basic(&value, type, val);
+			; C_return (dbus_message_iter_close_container(iter, &value));")
+
 	;; TODO: iter-append-basic-T for each possible type:
 	;; especially variant, array and struct might still be possible
 
@@ -351,6 +395,7 @@
 			[(fixnum? val) (iter-append-basic-int iter val)]
 			[(flonum? val) (iter-append-basic-double iter val)]
 			[(boolean? val) (iter-append-basic-bool iter val)]
+			[(variant? val) (iter-append-basic-variant iter val)]
 			[(pair? val)
 				(let ([type (car val)])
 					(cond
@@ -379,6 +424,7 @@
 	(define (iter-cond iter)
 		(let (	[type ((foreign-lambda int "dbus_message_iter_get_arg_type"
 						message-iter-ptr) iter)] )
+			; (printf "iter-cond type ~s~%" type)
 			(cond
 				[(memq type `(,type-string ,type-invalid-string
 								,type-string-string ,type-object-path
@@ -420,7 +466,10 @@
 						dbus_message_iter_get_basic(iter, &ret);
 						C_return (ret);") iter)]
 				[(eq? type type-array)
-					(iter->vector (make-sub-iter iter))]
+					(let ([v  (iter->vector (make-sub-iter iter))])
+						(when (and (vector? v) (eq? 1 (vector-length v)) (unsupported-type? (vector-ref v 0)))
+							(set! v (make-vector 0)))
+						v)]
 				[(eq? type type-dict)
 					(iter->pair (make-sub-iter iter))]
 				[(eq? type type-variant)
