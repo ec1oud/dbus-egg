@@ -436,7 +436,7 @@
 								,type-int64-string ,type-uint64-string
 								,type-double-string ))
 					((foreign-lambda* c-string ((message-iter-ptr iter))
-						"char* ret;
+						"char* ret = NULL;
 						dbus_message_iter_get_basic(iter, &ret);
 						C_return (ret);") iter)]
 				[(eq? type type-boolean)
@@ -447,22 +447,23 @@
 				[(memq type `(,type-int32 ,type-byte
 								,type-int16 ))
 					((foreign-lambda* int ((message-iter-ptr iter))
-						"int ret;
+						"int ret = 0;
 						dbus_message_iter_get_basic(iter, &ret);
 						C_return (ret);") iter)]
 				[(memq type `(,type-uint32 ,type-uint16))
 					((foreign-lambda* unsigned-int ((message-iter-ptr iter))
-						"unsigned int ret;
+						"unsigned int ret = 0;
 						dbus_message_iter_get_basic(iter, &ret);
 						C_return (ret);") iter)]
 				[(memq type `(,type-flonum ,type-uint64))
+					;; todo don't put 64-bit int into a flonum if there's another way
 					((foreign-lambda* double ((message-iter-ptr iter))
 						"double ret;
 						dbus_message_iter_get_basic(iter, &ret);
 						C_return (ret);") iter)]
 				[(eq? type type-int64)
 					((foreign-lambda* integer64 ((message-iter-ptr iter))
-						"int64_t ret;
+						"int64_t ret = 0;
 						dbus_message_iter_get_basic(iter, &ret);
 						C_return (ret);") iter)]
 				[(eq? type type-array)
@@ -476,10 +477,13 @@
 					(if (auto-unbox-variants)
 						((make-sub-iter iter))
 						(make-variant ((make-sub-iter iter))))]
-				;; unsupported so far (not understood well enough):
+
+				;; todo: unsupported so far (not understood well enough):
 				;; 	type-object-path and type-signature
-				;; type-invalid is returned as #f (could be (void) but that
-				;; would be the termination condition for the iterator)
+
+				;; so far the DBus "invalid" type is treated the same as unsupported.
+				;; Maybe need a distinction though...
+				; [(eq? type type-invalid) ...]
 				[else (make-unsupported-type (integer->char type))] )))
 
 	(define (make-sub-iter iter)
