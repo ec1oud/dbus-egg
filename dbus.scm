@@ -27,7 +27,7 @@
 		foreigners
 		easyffi
 		miscmacros)
-	(use srfi-18)
+	(use vector-lib srfi-18)
 
 #>
 	#include <dbus/dbus.h>
@@ -53,7 +53,7 @@
 ;; have a use for the "variant" concept; but since dbus has a variant type,
 ;; we need a way of representing one when preparing a message for marshalling.
 (define-record-type variant
-	(make-variant data)
+	(make-variant #!optional data)
 	variant?
 	(data variant-data))
 (define-record-printer (variant v out)
@@ -107,7 +107,9 @@
 (define type-object-path  (foreign-value DBUS_TYPE_OBJECT_PATH int))
 (define type-signature  (foreign-value DBUS_TYPE_SIGNATURE int))
 (define type-array (foreign-value DBUS_TYPE_ARRAY int))
-(define type-dict  (foreign-value DBUS_TYPE_DICT_ENTRY int))
+(define type-dict-entry  (foreign-value DBUS_TYPE_DICT_ENTRY int))
+(define type-dict-begin  (foreign-value DBUS_DICT_ENTRY_BEGIN_CHAR int))
+(define type-dict-end  (foreign-value DBUS_DICT_ENTRY_END_CHAR int))
 (define type-variant (foreign-value DBUS_TYPE_VARIANT int))
 
 (define make-context)
@@ -325,47 +327,64 @@
 		(foreign-lambda* bool ((message-iter-ptr iter) (integer64 v))
 			"C_return (dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT64, &v));"))
 
-	;; todo efficient
-	(define (char->string ch) (format "~a" ch))
+	(define (ascii->string a) (string (integer->char a)))
 
 	(define (value-signature val)
+; (printf "value-signature ~s~%" val)
 		(cond
-			[(fixnum? val) (char->string type-fixnum)]
-			[(flonum? val) (char->string type-flonum)]
-			[(boolean? val) (char->string type-boolean)]
-			[(variant? val) (value-signature (variant-data val))]
-			; todo: recursive
-			; [(pair? val)
+			[(string? val) (ascii->string type-string)]
+			[(fixnum? val) (ascii->string type-fixnum)]
+			[(flonum? val) (ascii->string type-flonum)]
+			[(boolean? val) (ascii->string type-boolean)]
+			[(variant? val) (ascii->string type-variant)]
+			; [(variant? val) (value-signature (variant-data val))]
+			[(pair? val)
+				(if (list? val)
+					"unsupported" ;; todo
+					(format "~a~a~a~a" (integer->char type-dict-begin) (value-signature (car val)) (value-signature (cdr val))(integer->char type-dict-end) )
+				)]
 		))
 
 	(define (iter-append-basic-variant iter val)
 		(let ([signature (value-signature val)])
-		; (let ([append-fn #f][signature ""])
-			; (cond
-				; todo signature should be a string; need to handle complex types nested in variants too
-				; [(fixnum? val)
-					; (set! append-fn iter-append-basic-int)
-					; (set! signature type-fixnum)]
-				; [(flonum? val)
-					; (set! append-fn iter-append-basic-double)
-					; (set! signature type-flonum)]
-				; [(boolean? val)
-					; (set! append-fn iter-append-basic-bool)
-					; (set! signature type-boolean)]
-				; [(variant? val)
-					; (set! append-fn iter-append-basic-variant)
-					; (set! signature type-variant)] )
-				;; todo: for a list, how would I know the composite signature until having done the append?
-				; [(pair? val)
-					; (set! append-fn iter-append-basic)
-					; (set! signature type-variant)] )
 			(let ([container ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter) (c-string signature))
-					"DBusMessageIter value;
-					dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, signature, &value);
-					C_return(&value);") iter signature)])
+					"DBusMessageIter* container = malloc(sizeof(DBusMessageIter));
+					dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, signature, container);
+					C_return(container);") iter signature)])
 				(iter-append-basic container val)
 				((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
 					"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) ))
+
+	(define (iter-append-dict-entry iter pair)
+;(printf "iter-append-dict-entry ~s : ~s~%" (car pair)(cdr pair))
+		(let ([signature (value-signature pair)])
+			(let ([container ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter) (c-string signature))
+					"DBusMessageIter* container = malloc(sizeof(DBusMessageIter));
+					dbus_message_iter_open_container(iter, DBUS_TYPE_DICT_ENTRY, NULL, container);
+					C_return(container);") iter signature)])
+				(iter-append-basic container (car pair))
+				(iter-append-basic container (cdr pair))
+				((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
+					"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) ))
+
+	;; The first element of the vector determines the signature, so all elements must have the same signature.
+	(define (iter-append-uniform-array iter vec)
+; (printf "iter-append-uniform-array ~s~%" vec)
+		(if (> (vector-length vec) 0)
+			; (let ([signature (format "~a~a" (ascii->string type-array) (value-signature (vector-ref vec 0)))])
+			(let ([signature (value-signature (vector-ref vec 0))])
+; (printf "value signature ~s~%" signature)
+				(let ([container ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter) (c-string signature))
+						"DBusMessageIter* container = malloc(sizeof(DBusMessageIter));
+						dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, signature, container);
+						C_return(container);") iter signature)])
+					(vector-for-each (lambda (i val)
+; (printf "iter-append array element ~s ~s~%" i val)
+						(iter-append-basic container val) ) vec)
+					((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
+						"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) )
+			;; else todo: append empty array
+			))
 
 ; (foreign-lambda* bool ((message-iter-ptr iter) (integer64 v))
 			; "dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, signature, &value);
@@ -379,32 +398,14 @@
 	;; could be a pair of the form (type-x . value)
 	;; in which case we will attempt to convert the value to that type for sending.
 	(define (iter-append-basic iter val)
+; (printf "iter-append-basic ~s ~s~%"	iter val)
 		(cond
 			[(fixnum? val) (iter-append-basic-int iter val)]
 			[(flonum? val) (iter-append-basic-double iter val)]
 			[(boolean? val) (iter-append-basic-bool iter val)]
-			[(variant? val) (iter-append-basic-variant iter val)]
-			[(pair? val)
-				(let ([type (car val)])
-					(cond
-						;; TODO: this doesn't compile
-						;; Error: Arguments to inlined call of `iter-append-basic-byte'
-						;; do not match parameter-list (a207 a206)
-						;; so I guess it has to _be_ a byte before the call
-						; [(eq? type type-byte)
-							; (iter-append-basic-byte (cdr val))]
-						; [(eq? type type-int16)
-							; (iter-append-basic-int16 (cdr val))]
-						; [(eq? type type-uint32)
-							; (iter-append-basic-uint32 (cdr val))]
-						; [(eq? type type-uint16)
-							; (iter-append-basic-uint16 (cdr val))]
-						; [(eq? type type-int64)
-							; (iter-append-basic-int64 (cdr val))]
-						; [(eq? type type-uint64)
-							; (iter-append-basic-uint64 (cdr val))]
-						;; other custom requests will be handled as usual, above
-						[else (iter-append-basic iter (cdr val))] ))]
+			[(variant? val) (iter-append-basic-variant iter (variant-data val))]
+			[(vector? val) (iter-append-uniform-array iter val)]
+			[(and (pair? val) (not (list? val))) (iter-append-dict-entry iter val)]
 			[else (iter-append-basic-string iter (any->string val))] ))
 
 	(define free-iter (foreign-lambda* void ((message-iter-ptr i)) "free(i);"))
@@ -451,7 +452,7 @@
 						(when (and (vector? v) (eq? 1 (vector-length v)) (unsupported-type? (vector-ref v 0)))
 							(set! v (make-vector 0)))
 						v)]
-				[(eq? type type-dict)
+				[(eq? type type-dict-entry)
 					(iter->pair (make-sub-iter iter))]
 				[(eq? type type-variant)
 					(if (auto-unbox-variants)
@@ -595,6 +596,8 @@
 							reply = dbus_connection_send_with_reply_and_block(conn, msg, 5000, &error);
 							if (dbus_error_is_set (&error))
 								fprintf (stderr, \"Error %s: %s\\n\", error.name, error.message);
+							else
+								fprintf (stderr, \"reply signature %s\\n\", dbus_message_get_signature(reply));
 							dbus_message_unref(msg);
 							C_return(reply);") conn msg) ]
 						[reply-iter (make-iter reply-msg)]

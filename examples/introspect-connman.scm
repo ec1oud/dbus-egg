@@ -1,3 +1,4 @@
+;(use dbus)
 (use (prefix dbus dbus:))
 
 (define ctxt (dbus:make-context
@@ -32,12 +33,14 @@
 	(let ([ifaces (assoc "Services" (vector->list (car mgr-props)))])
 		(when (pair? ifaces)
 			(set! ifaces (vector->list (cdr ifaces)))
+
 (printf "~%==== Network interface Properties:~%")
 			(for-each (lambda (path)
 					(printf "---- ~a~%" path)
-					(pp (vector->list (car (device-properties path))))
+					(pp (device-properties path))
+				;	(pp (vector->list (car (device-properties path))))
 				) ifaces)
 		)))
 
-(sleep 1)
+;(sleep 1)
 (exit)
