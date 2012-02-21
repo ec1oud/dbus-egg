@@ -195,6 +195,8 @@
 			(string->symbol arg)
 			arg))
 
+	(define (ascii->string a) (string (integer->char a)))
+
 	;; If the assq-list has the given key, replace its value.
 	;; Else add the key-value pair.
 	(define (asset! alist key val)
@@ -327,8 +329,6 @@
 		(foreign-lambda* bool ((message-iter-ptr iter) (integer64 v))
 			"C_return (dbus_message_iter_append_basic(iter, DBUS_TYPE_UINT64, &v));"))
 
-	(define (ascii->string a) (string (integer->char a)))
-
 	(define (value-signature val)
 ; (printf "value-signature ~s~%" val)
 		(cond
@@ -337,16 +337,20 @@
 			[(flonum? val) (ascii->string type-flonum)]
 			[(boolean? val) (ascii->string type-boolean)]
 			[(variant? val) (ascii->string type-variant)]
+			[(vector? val) (format "~a~a" (ascii->string type-array) (value-signature (vector-ref val 0)))]
 			; [(variant? val) (value-signature (variant-data val))]
 			[(pair? val)
 				(if (list? val)
 					"unsupported" ;; todo
-					(format "~a~a~a~a" (integer->char type-dict-begin) (value-signature (car val)) (value-signature (cdr val))(integer->char type-dict-end) )
+					(format "~a~a~a~a" (integer->char type-dict-begin)
+						(value-signature (car val)) (value-signature (cdr val))(integer->char type-dict-end))
 				)]
 		))
 
 	(define (iter-append-basic-variant iter val)
+; (printf "iter-append-basic-variant ~s~%" val)
 		(let ([signature (value-signature val)])
+; (printf "iter-append-basic-variant: sig ~s~%" signature)
 			(let ([container ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter) (c-string signature))
 					"DBusMessageIter* container = malloc(sizeof(DBusMessageIter));
 					dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, signature, container);
@@ -356,7 +360,7 @@
 					"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) ))
 
 	(define (iter-append-dict-entry iter pair)
-;(printf "iter-append-dict-entry ~s : ~s~%" (car pair)(cdr pair))
+; (printf "iter-append-dict-entry ~s : ~s~%" (car pair)(cdr pair))
 		(let ([signature (value-signature pair)])
 			(let ([container ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter) (c-string signature))
 					"DBusMessageIter* container = malloc(sizeof(DBusMessageIter));
@@ -392,7 +396,7 @@
 			; C_return (dbus_message_iter_close_container(iter, &value));")
 
 	;; TODO: iter-append-basic-T for each possible type:
-	;; especially variant, array and struct might still be possible
+	;; especially struct might still be possible
 
 	;; val would usually be a single value, but
 	;; could be a pair of the form (type-x . value)
@@ -503,8 +507,7 @@
 						ret	)
 					(begin
 						(free-iter iter)
-						iterm)
-				))))
+						iterm) ))))
 
 	;; todo maybe: rewrite to avoid the reverse
 	(define (iter->list iter)
