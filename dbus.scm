@@ -27,7 +27,7 @@
 		foreigners
 		easyffi
 		miscmacros)
-	(use vector-lib srfi-18)
+	(use srfi-18)
 
 #>
 	#include <dbus/dbus.h>
@@ -196,6 +196,13 @@
 			arg))
 
 	(define (ascii->string a) (string (integer->char a)))
+
+	(define (vector-for-each fn v)
+		(let ([len (vector-length v)])
+			(let loop ([i 0])
+				(when (< i len)
+					(fn i (vector-ref v i))
+					(loop (+ 1 i))))))
 
 	;; If the assq-list has the given key, replace its value.
 	;; Else add the key-value pair.
