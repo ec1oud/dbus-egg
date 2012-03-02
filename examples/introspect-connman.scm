@@ -26,6 +26,9 @@
 (printf "~%==== Manager Services:~%")
 (pretty-print (dbus:call mgr-ctxt "GetServices"))
 
+(printf "~%==== Manager Technologies:~%")
+(pretty-print (dbus:call mgr-ctxt "GetTechnologies"))
+
 (printf "~%==== Manager Properties:~%")
 (dbus:auto-unbox-variants #t)
 (let ([mgr-props (dbus:call mgr-ctxt "GetProperties")])

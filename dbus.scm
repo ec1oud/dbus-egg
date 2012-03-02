@@ -108,9 +108,12 @@
 (define type-signature  (foreign-value DBUS_TYPE_SIGNATURE int))
 (define type-array (foreign-value DBUS_TYPE_ARRAY int))
 (define type-dict-entry  (foreign-value DBUS_TYPE_DICT_ENTRY int))
-(define type-dict-begin  (foreign-value DBUS_DICT_ENTRY_BEGIN_CHAR int))
-(define type-dict-end  (foreign-value DBUS_DICT_ENTRY_END_CHAR int))
+(define type-dict-entry-begin  (foreign-value DBUS_DICT_ENTRY_BEGIN_CHAR int))
+(define type-dict-entry-end  (foreign-value DBUS_DICT_ENTRY_END_CHAR int))
 (define type-variant (foreign-value DBUS_TYPE_VARIANT int))
+(define type-struct (foreign-value DBUS_TYPE_STRUCT int))
+(define type-struct-begin  (foreign-value DBUS_STRUCT_BEGIN_CHAR int))
+(define type-struct-end  (foreign-value DBUS_STRUCT_END_CHAR int))
 
 (define make-context)
 (define send)
@@ -349,8 +352,8 @@
 			[(pair? val)
 				(if (list? val)
 					"unsupported" ;; todo
-					(format "~a~a~a~a" (integer->char type-dict-begin)
-						(value-signature (car val)) (value-signature (cdr val))(integer->char type-dict-end))
+					(format "~a~a~a~a" (integer->char type-dict-entry-begin)
+						(value-signature (car val)) (value-signature (cdr val))(integer->char type-dict-entry-end))
 				)]
 		))
 
@@ -465,6 +468,8 @@
 						v)]
 				[(eq? type type-dict-entry)
 					(iter->pair (make-sub-iter iter))]
+				[(eq? type type-struct)
+					(iter->vector (make-sub-iter iter))]
 				[(eq? type type-variant)
 					(if (auto-unbox-variants)
 						((make-sub-iter iter))
