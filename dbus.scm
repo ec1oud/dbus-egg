@@ -18,10 +18,20 @@
 		register-path
 		unsupported-type?
 		unsupported-type-signature
+
+		make-variant
 		variant?
 		variant-data
-		make-variant
-		auto-unbox-variants)
+		auto-unbox-variants
+
+		make-struct
+		struct?
+		struct-ref
+		struct-set!
+		auto-unbox-structs
+		vector->struct
+		struct->vector
+	)
 	(import scheme chicken extras
 		(except foreign foreign-declare)
 		foreigners
@@ -66,6 +76,29 @@
 ;; you want to turn it on for convenience, if you don't care to know
 ;; about this low-level detail.
 (define auto-unbox-variants (make-parameter #f))
+
+;; A DBus struct is represented as a vector, but it's tagged for marshalling
+;; record definition as just a wrapped vector
+(define-record-type struct
+	(vector->struct data)
+	struct?
+	(data struct->vector))
+;; now a realistic constructor
+(define (make-struct . fields) (vector->struct (list->vector fields)))
+;; and realistic accessors
+(define (struct-ref struct idx) (vector-ref (struct->vector struct) idx))
+(define (struct-set! struct idx val) (vector-set! (struct->vector struct) idx val))
+;; pretty-printing
+(define-record-printer (struct v out)
+	(fprintf out "#,(struct ~S)" (struct->vector v)))
+;; If unboxing is turned on, when a "call"ed dbus service method
+;; returns a struct, it will look like a vector instead.  This is
+;; convenient if you know what to expect, but otherwise you will
+;; have some difficulty to distinguish a struct from an array.
+;; By default this feature is turned off, in the interest of having a
+;; representation that is the same as you will need to build when
+;; you want to send (marshall) a dbus message.
+(define auto-unbox-structs (make-parameter #f))
 
 ; Would want to do this:
 ; (define-foreign-enum (bus (enum "DBusBusType"))
@@ -469,7 +502,8 @@
 				[(eq? type type-dict-entry)
 					(iter->pair (make-sub-iter iter))]
 				[(eq? type type-struct)
-					(iter->vector (make-sub-iter iter))]
+					(let ([v (iter->vector (make-sub-iter iter))])
+						(if (auto-unbox-structs) v (vector->struct v)))]
 				[(eq? type type-variant)
 					(if (auto-unbox-variants)
 						((make-sub-iter iter))
