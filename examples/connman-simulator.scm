@@ -7,7 +7,7 @@
 
 (define ethernet-props
 	`(#(("Type" . ,(dbus:make-variant "ethernet"))
-	   ("Security" . ,(dbus:make-variant))	;; todo empty variant goes across as #f
+	   ("Security" . ,(dbus:make-variant))
 	   ("State" . ,(dbus:make-variant "online"))
 	   ("Favorite" . ,(dbus:make-variant #t))
 	   ("Immutable" . ,(dbus:make-variant #f))
@@ -15,22 +15,22 @@
 	   ("Name" . ,(dbus:make-variant "Wired"))
 	   ("LoginRequired" . ,(dbus:make-variant #f))
 	   ("Ethernet" . ,(dbus:make-variant
-		'#(("Method" . "auto")
-		  ("Interface" . "eth0")
-		  ("Address" . "C8:0A:A9:DA:AE:A5")
-		  ("MTU" . "1500"))))
+		`#(("Method" . ,(dbus:make-variant "auto"))
+		  ("Interface" . ,(dbus:make-variant "eth0"))
+		  ("Address" . ,(dbus:make-variant "C8:0A:A9:DA:AE:A5"))
+		  ("MTU" . ,(dbus:make-variant 1500)))))
 	   ("IPv4" . ,(dbus:make-variant
-		'#(("Method" . "dhcp")
-		  ("Address" . "10.0.0.148")
-		  ("Netmask" . "255.255.255.0"))))
-	   ("IPv4.Configuration" . ,(dbus:make-variant '#(("Method" . "dhcp"))))
+		`#(("Method" . ,(dbus:make-variant "dhcp"))
+		  ("Address" . ,(dbus:make-variant "10.0.0.148"))
+		  ("Netmask" . ,(dbus:make-variant "255.255.255.0")))))
+	   ("IPv4.Configuration" . ,(dbus:make-variant `#(("Method" . ,(dbus:make-variant "dhcp")))))
 	   ("IPv6" . ,(dbus:make-variant))
-	   ("IPv6.Configuration" . ,(dbus:make-variant '#(("Method" . "auto") ("Privacy" . "disabled"))))
+	   ("IPv6.Configuration" . ,(dbus:make-variant `#(("Method" . ,(dbus:make-variant "auto")) ("Privacy" . ,(dbus:make-variant "disabled")))))
 	   ("Nameservers" . ,(dbus:make-variant '#("10.0.0.1")))
 	   ("Nameservers.Configuration" . ,(dbus:make-variant))
 	   ("Domains" . ,(dbus:make-variant '#("lan")))
 	   ("Domains.Configuration" . ,(dbus:make-variant))
-	   ("Proxy" . ,(dbus:make-variant '#(("Method" . "direct"))))
+	   ("Proxy" . ,(dbus:make-variant `#(("Method" . ,(dbus:make-variant "direct")))))
 	   ("Proxy.Configuration" . ,(dbus:make-variant))
 	   ("Provider" . ,(dbus:make-variant)))) )
 
