@@ -380,6 +380,8 @@
 			[(flonum? val) (ascii->string type-flonum)]
 			[(boolean? val) (ascii->string type-boolean)]
 			[(variant? val) (ascii->string type-variant)]
+			[(struct? val) (format "~a~a~a" (ascii->string type-struct-begin)
+				(apply string-append (map value-signature (vector->list (struct->vector val)))) (ascii->string type-struct-end))]
 			[(vector? val) (format "~a~a" (ascii->string type-array) (value-signature (vector-ref val 0)))]
 			; [(variant? val) (value-signature (variant-data val))]
 			[(pair? val)
@@ -400,7 +402,21 @@
 					C_return(container);") iter signature)])
 				(iter-append-basic container val)
 				((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
-					"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) ))
+					"bool ret = dbus_message_iter_close_container(iter, container);
+					free(container);
+					C_return(ret);") iter container) ) ))
+
+	(define (iter-append-basic-struct iter val)
+; (printf "iter-append-basic-struct ~s~%" val)
+		(let ([container ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter))
+				"DBusMessageIter* container = malloc(sizeof(DBusMessageIter));
+				dbus_message_iter_open_container(iter, DBUS_TYPE_STRUCT, NULL, container);
+				C_return(container);") iter)])
+			(vector-for-each (lambda (i field) (iter-append-basic container field)) val)
+			((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
+				"bool ret = dbus_message_iter_close_container(iter, container);
+				free(container);
+				C_return (ret);") iter container) ) )
 
 	(define (iter-append-dict-entry iter pair)
 ; (printf "iter-append-dict-entry ~s : ~s~%" (car pair)(cdr pair))
@@ -412,7 +428,9 @@
 				(iter-append-basic container (car pair))
 				(iter-append-basic container (cdr pair))
 				((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
-					"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) ))
+					"bool ret = dbus_message_iter_close_container(iter, container);
+					free(container);
+					C_return(ret);") iter container) ) ))
 
 	;; The first element of the vector determines the signature, so all elements must have the same signature.
 	(define (iter-append-uniform-array iter vec)
@@ -429,17 +447,13 @@
 ; (printf "iter-append array element ~s ~s~%" i val)
 						(iter-append-basic container val) ) vec)
 					((foreign-lambda* bool ((message-iter-ptr iter)(message-iter-ptr container))
-						"C_return (dbus_message_iter_close_container(iter, container));") iter container) ) )
+						"bool ret = dbus_message_iter_close_container(iter, container);
+						free(container);
+						C_return(ret);") iter container) ) )
 			;; else todo: append empty array
 			))
 
-; (foreign-lambda* bool ((message-iter-ptr iter) (integer64 v))
-			; "dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, signature, &value);
-			; dbus_message_iter_append_basic(&value, type, val);
-			; C_return (dbus_message_iter_close_container(iter, &value));")
-
-	;; TODO: iter-append-basic-T for each possible type:
-	;; especially struct might still be possible
+	;; TODO: iter-append-basic-object-path
 
 	;; val would usually be a single value, but
 	;; could be a pair of the form (type-x . value)
@@ -451,6 +465,7 @@
 			[(flonum? val) (iter-append-basic-double iter val)]
 			[(boolean? val) (iter-append-basic-bool iter val)]
 			[(variant? val) (iter-append-basic-variant iter (variant-data val))]
+			[(struct? val) (iter-append-basic-struct iter (struct->vector val))]
 			[(vector? val) (iter-append-uniform-array iter val)]
 			[(and (pair? val) (not (list? val))) (iter-append-dict-entry iter val)]
 			[else (iter-append-basic-string iter (any->string val))] ))
