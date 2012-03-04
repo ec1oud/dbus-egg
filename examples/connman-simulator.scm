@@ -35,19 +35,19 @@
 	   ("Provider" . ,(dbus:make-variant)))) )
 
 (define manager-techs
-`(#(,(dbus:make-struct "/net/connman/technology/wifi"
+`(#(,(dbus:make-struct (dbus:string->object-path "/net/connman/technology/wifi")
      `#(("Name" . ,(dbus:make-variant "WiFi"))
        ("Type" . ,(dbus:make-variant "wifi"))
        ("Powered" . ,(dbus:make-variant #f))
        ("Connected" . ,(dbus:make-variant #f))
        ("Tethering" . ,(dbus:make-variant #f))))
-   ,(dbus:make-struct "/net/connman/technology/bluetooth"
+   ,(dbus:make-struct (dbus:string->object-path "/net/connman/technology/bluetooth")
      `#(("Name" . ,(dbus:make-variant "Bluetooth"))
        ("Type" . ,(dbus:make-variant "bluetooth"))
        ("Powered" . ,(dbus:make-variant #f))
        ("Connected" . ,(dbus:make-variant #f))
        ("Tethering" . ,(dbus:make-variant #f))))
-   ,(dbus:make-struct "/net/connman/technology/ethernet"
+   ,(dbus:make-struct (dbus:string->object-path "/net/connman/technology/ethernet")
      `#(("Name" . ,(dbus:make-variant "Wired"))
        ("Type" . ,(dbus:make-variant "ethernet"))
        ("Powered" . ,(dbus:make-variant #t))

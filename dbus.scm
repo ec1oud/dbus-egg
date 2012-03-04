@@ -31,6 +31,11 @@
 		auto-unbox-structs
 		vector->struct
 		struct->vector
+
+		string->object-path
+		object-path?
+		object-path->string
+		auto-unbox-object-paths
 	)
 	(import scheme chicken extras
 		(except foreign foreign-declare)
@@ -58,6 +63,15 @@
 	(signature unsupported-type-signature))
 (define-record-printer (unsupported-type d out)
 	(fprintf out "#<unsupported-type ~s>" (unsupported-type-signature d)))
+
+;; Object path is a string which is a dbus path
+(define-record-type object-path
+	(string->object-path str)
+	object-path?
+	(str object-path->string))
+(define-record-printer (object-path d out)
+	(fprintf out "#<object-path ~s>" (object-path->string d)))
+(define auto-unbox-object-paths (make-parameter #f))
 
 ;; Scheme is a dynamically typed language, so fundamentally we don't
 ;; have a use for the "variant" concept; but since dbus has a variant type,
@@ -191,7 +205,7 @@
 		found
 	))
 
-(let (	[connections '()]	;; an alist mapping bus to DBusConnection ptrs
+(let ([connections '()]	;; an alist mapping bus to DBusConnection ptrs
 		[error (foreign-value "&err" c-pointer)]
 		;; indices in a "context" vector
 		[context-idx-ID 0]
@@ -270,7 +284,7 @@
 	;; return value is undefined
 	(define (tasset! tree val . keys)
 		(let ([key-list (if (pair? (car keys)) (car keys) keys)])
-			(let loop (	[rem-keys (cdr key-list)]
+			(let loop ([rem-keys (cdr key-list)]
 						[subtree (tassq tree (car key-list))]
 						[prev-key (car key-list)]
 						[prev-subtree tree])
@@ -336,6 +350,10 @@
 		(foreign-lambda* bool ((message-iter-ptr iter) (c-string v))
 			"C_return (dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &v));"))
 
+	(define iter-append-basic-object-path
+		(foreign-lambda* bool ((message-iter-ptr iter) (c-string v))
+			"C_return (dbus_message_iter_append_basic(iter, DBUS_TYPE_OBJECT_PATH, &v));"))
+
 	(define iter-append-basic-bool
 		(foreign-lambda* bool ((message-iter-ptr iter) (bool v))
 			"C_return (dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &v));"))
@@ -376,6 +394,7 @@
 ; (printf "value-signature ~s~%" val)
 		(cond
 			[(string? val) (ascii->string type-string)]
+			[(object-path? val) (ascii->string type-object-path)]
 			[(fixnum? val) (ascii->string type-fixnum)]
 			[(flonum? val) (ascii->string type-flonum)]
 			[(boolean? val) (ascii->string type-boolean)]
@@ -468,20 +487,29 @@
 			[(struct? val) (iter-append-basic-struct iter (struct->vector val))]
 			[(vector? val) (iter-append-uniform-array iter val)]
 			[(and (pair? val) (not (list? val))) (iter-append-dict-entry iter val)]
+			[(object-path? val) (iter-append-basic-object-path iter (object-path->string val))]
 			[else (iter-append-basic-string iter (any->string val))] ))
 
 	(define free-iter (foreign-lambda* void ((message-iter-ptr i)) "free(i);"))
 
 	(define (iter-cond iter)
-		(let (	[type ((foreign-lambda int "dbus_message_iter_get_arg_type"
+		(let ([type ((foreign-lambda int "dbus_message_iter_get_arg_type"
 						message-iter-ptr) iter)] )
 			; (printf "iter-cond type ~s~%" type)
 			(cond
-				[(memq type `(,type-string ,type-object-path))
+				[(eq? type type-string)
 					((foreign-lambda* c-string ((message-iter-ptr iter))
 						"char* ret = NULL;
 						dbus_message_iter_get_basic(iter, &ret);
 						C_return (ret);") iter)]
+				[(eq? type type-object-path)
+					(let ([str ((foreign-lambda* c-string ((message-iter-ptr iter))
+						"char* ret = NULL;
+						dbus_message_iter_get_basic(iter, &ret);
+						C_return (ret);") iter)])
+						(if (auto-unbox-object-paths)
+							str
+							(string->object-path str)))]
 				[(eq? type type-boolean)
 					((foreign-lambda* bool ((message-iter-ptr iter))
 						"bool ret;
@@ -624,7 +652,7 @@
 		(foreign-lambda int "dbus_connection_send" connection-ptr message-ptr uint-ptr))
 
 	(set! send (lambda (context name . params)
-		(let* (	[service (symbol?->string (vector-ref context context-idx-service))]
+		(let* ([service (symbol?->string (vector-ref context context-idx-service))]
 				[msg (make-signal
 							(symbol?->string (vector-ref context context-idx-path))
 							(symbol?->string (vector-ref context context-idx-interface))
@@ -640,7 +668,7 @@
 			))))
 
 	(set! call (lambda (context name . params)
-		(let* (	[service (symbol->string (vector-ref context context-idx-service))]
+		(let* ([service (symbol->string (vector-ref context context-idx-service))]
 				[msg (make-message service
 							(symbol->string (vector-ref context context-idx-path))
 							(symbol->string (vector-ref context context-idx-interface))
@@ -651,7 +679,7 @@
 				(for-each (lambda (parm)
 					(iter-append-basic iter parm))	params)
 				(free-iter iter)
-				(let* (	[reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
+				(let* ([reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
 							;; idealistic code here; todo: error checking
 							;; todo: timeout comes from where?  (make-parameter) maybe
 							"DBusMessage *reply;
@@ -669,11 +697,11 @@
 					reply-args)))))
 
 	(set! make-method-proxy (lambda (context name)
-		(let (	[service (symbol->string (vector-ref context context-idx-service))]
+		(let ([service (symbol->string (vector-ref context context-idx-service))]
 				[conn (conn-or-abort (vector-ref context context-idx-bus))] )
 				; (exists-or-abort conn (format "no connection to bus ~s~%" (vector-ref context context-idx-bus)))
 				(lambda params
-					(let* (	[msg (make-message service
+					(let* ([msg (make-message service
 									(symbol->string (vector-ref context context-idx-path))
 									(symbol->string (vector-ref context context-idx-interface))
 									name)]
@@ -682,7 +710,7 @@
 							(iter-append-basic iter parm))	params)
 						(free-iter iter)
 						;; TODO: pull this out into a helper function
-						(let* (	[reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
+						(let* ([reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
 									;; idealistic code here; todo: error checking
 									"DBusPendingCall* pending;
 									dbus_connection_send_with_reply(conn, msg, &pending, -1);
@@ -788,10 +816,10 @@
 	;; msg-cb is the user-provided one.
 	(define (method-wrapper conn msg-cb)
 		(lambda (msg)
-			(let (	[args (iter->list (make-iter msg))]
+			(let ([args (iter->list (make-iter msg))]
 					[response ((foreign-lambda message-ptr
 							"dbus_message_new_method_return" message-ptr) msg)])
-				(let (	[ret (apply msg-cb args)]
+				(let ([ret (apply msg-cb args)]
 						[iter (make-iter-append response)] )
 					(if (pair? ret)
 						(for-each (lambda (parm)
