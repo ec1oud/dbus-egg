@@ -15,7 +15,7 @@
 		system-bus
 		starter-bus
 		known-bus-count
-		register-path
+		; register-path ; disabled for now due to https://bugs.call-cc.org/ticket/850
 		unsupported-type?
 		unsupported-type-signature
 
