@@ -679,7 +679,7 @@
 				(for-each (lambda (parm)
 					(iter-append-basic iter parm))	params)
 				(free-iter iter)
-				(let* ([reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
+				(and-let* ([reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
 							;; idealistic code here; todo: error checking
 							;; todo: timeout comes from where?  (make-parameter) maybe
 							"DBusMessage *reply;
@@ -710,7 +710,7 @@
 							(iter-append-basic iter parm))	params)
 						(free-iter iter)
 						;; TODO: pull this out into a helper function
-						(let* ([reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
+						(and-let* ([reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg))
 									;; idealistic code here; todo: error checking
 									"DBusPendingCall* pending;
 									dbus_connection_send_with_reply(conn, msg, &pending, -1);
