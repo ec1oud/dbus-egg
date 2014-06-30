@@ -272,11 +272,12 @@
 	(define (tassq tree . keys)
 		(let ([key-list (if (pair? (car keys)) (car keys) keys)])
 			(let loop ([rem-keys key-list][subtree tree])
-				(if (null? rem-keys)
-					subtree
-					(loop (cdr rem-keys)
+				(cond
+					[(null? rem-keys)	subtree]
+					[(not subtree) #f]
+					[else (loop (cdr rem-keys)
 						(let ([pr (assq (car rem-keys) subtree)])
-							(and (pair? pr) (cdr pr))))))))
+							(and (pair? pr) (cdr pr))))]))))
 
 	;; The "tree" version of asset!: drills down into an assq-tree
 	;; as directed by the sequence of keys, making new branches as necessary,
@@ -697,9 +698,13 @@
 			; (printf "   mber ~s~%" mber)
 			;; The service name is not included as part of the signal, so svc will be #f.
 			;; In that case the callback is registered under bus/path/iface/signal-name.
-			(if svc
-				(tassq callbacks-table bus path svc iface mber)
-				(tassq callbacks-table bus path iface mber) ))))
+			(let ([ret (if svc
+						(tassq callbacks-table bus path svc iface mber)
+						(tassq callbacks-table bus path iface mber) ) ])
+				(unless ret
+					(printf "failed to find callback for ~a ~a~%" iface mber))
+				ret
+			))))
 
 	(set! make-context (lambda (#!key (bus session-bus) service interface (path "/"))
 		(vector (next-context-ID) bus (string?->symbol service)
