@@ -348,35 +348,6 @@
 
 	(define make-error
 		(foreign-lambda* (c-pointer (struct "DBusError")) ()
-			 "DBusError err;
-        dbus_error_init(&err);
-        C_return(&err);"))
-
-	(define free-error!
-		(foreign-lambda* void (((c-pointer (struct "DBusError")) err))
-			"dbus_error_free(err);"))
-
-	(define (raise-dbus-error location err)
-		(let ((err-name
-					 ((foreign-lambda* c-string (((c-pointer (struct "DBusError")) err))
-							"C_return(err->name);")
-						err))
-					(err-message
-					 ((foreign-lambda* c-string (((c-pointer (struct "DBusError")) err))
-							"C_return(err->message);")
-						err)))
-			(free-error! err)
-			(signal
-			 (make-composite-condition
-				(make-property-condition 'dbus-call)
-				(make-property-condition 'exn
-																 'location location
-																 'message (string-append "(" err-name "): " err-message))
-				))))
-
-
-	(define make-error
-		(foreign-lambda* (c-pointer (struct "DBusError")) ()
 		 "DBusError err;
                   dbus_error_init(&err);
                   C_return(&err);"))
@@ -711,7 +682,7 @@
 				(unless ret
 					(printf "failed to find callback for ~a ~a ~a ~a on ~a~%" path svc iface mber (bus-name bus))
 					(for-each (lambda (bus)
-						(printf "~a:~%" (bus-name bus))
+						(printf "~a:~%" (bus-name (car bus)))
 						(if (cdr bus)
 							(for-each (lambda (path)
 								(printf "   ~a~%" (car path))
