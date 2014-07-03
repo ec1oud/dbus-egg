@@ -19,6 +19,7 @@
 		; register-path ; disabled for now due to https://bugs.call-cc.org/ticket/850
 		unsupported-type?
 		unsupported-type-signature
+		default-signal-handler
 
 		make-variant
 		variant?
@@ -182,8 +183,9 @@
 (define add-match)
 (define request-name)
 
-
 (define find-callback)
+
+(define default-signal-handler (make-parameter #f))
 
 (define-foreign-type error-ptr c-pointer) ;; DBusError*
 (define-foreign-type connection-ptr c-pointer)	;; DBusConnection*
@@ -680,18 +682,8 @@
 				(unless ret (set! ret
 						(tassq callbacks-table bus path iface mber) ))
 				(unless ret
-					(printf "failed to find callback for ~a ~a ~a ~a on ~a~%" path svc iface mber (bus-name bus))
-					(for-each (lambda (bus)
-						(printf "~a:~%" (bus-name (car bus)))
-						(if (cdr bus)
-							(for-each (lambda (path)
-								(printf "   ~a~%" (car path))
-								(for-each (lambda (iface)
-									(printf "    ~a ~a~%" (car iface) (cdr iface))) (cdr path)))
-								(cdr bus))
-							(printf "   no callbacks registered~%")
-						))
-						callbacks-table))
+					(when (default-signal-handler)
+						((default-signal-handler) (format "failed to find callback for ~a ~a ~a ~a on ~a" path svc iface mber (bus-name bus)))))
 				ret
 			))))
 

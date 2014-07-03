@@ -1,5 +1,7 @@
 (use (prefix dbus dbus:))
 
+(dbus:default-signal-handler (lambda (w) (printf "warning: ~a~%" w)))
+
 (define (turn-right) (printf "car is turning to the right~%"))
 (define (turn-left) (printf "car is turning to the left~%"))
 
