@@ -698,11 +698,26 @@
 			; (printf "   mber ~s~%" mber)
 			;; The service name is not included as part of the signal, so svc will be #f.
 			;; In that case the callback is registered under bus/path/iface/signal-name.
-			(let ([ret (if svc
-						(tassq callbacks-table bus path svc iface mber)
-						(tassq callbacks-table bus path iface mber) ) ])
+			(let ([ret (and svc
+						(tassq callbacks-table bus path svc iface mber))])
+				(unless ret (set! ret
+						(tassq callbacks-table bus path iface mber) ))
 				(unless ret
-					(printf "failed to find callback for ~a ~a~%" iface mber))
+					(printf "failed to find callback for ~a ~a ~a ~a ~a~%" bus path svc iface mber)
+					(for-each (lambda (bus)
+						(cond
+							[(eq? (car bus) session-bus) (printf "session bus:~%")]
+							[(eq? (car bus) system-bus) (printf "system bus:~%")]
+							[else (printf "bus ~a:~%" (car bus))])
+						(if (cdr bus)
+							(for-each (lambda (path)
+								(printf "   ~a~%" (car path))
+								(for-each (lambda (iface)
+									(printf "    ~a ~a~%" (car iface) (cdr iface))) (cdr path)))
+								(cdr bus))
+							(printf "   no callbacks registered~%")
+						))
+						callbacks-table))
 				ret
 			))))
 

@@ -5,9 +5,9 @@
 
 (define rc-car-context (dbus:make-context
 	; bus: dbus:session-bus 	;; would be the session-bus by default anyway
-	service: 'com.trolltech.CarExample
+	service: 'org.example.CarExample
 	path: '/Car
-	interface: 'com.trolltech.Examples.CarInterface ))
+	interface: 'org.example.Examples.CarInterface ))
 
 (dbus:enable-polling-thread!
 	; bus: dbus:session-bus 	;; would be the session-bus by default anyway

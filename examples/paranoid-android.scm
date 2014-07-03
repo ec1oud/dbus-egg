@@ -15,9 +15,9 @@
 	`(#t 42))
 
 (define rc-car-context (dbus:make-context
-	service: 'com.trolltech.CarExample
+	service: 'org.example.CarExample
 	path: '/Car
-	interface: 'com.trolltech.Examples.CarInterface ))
+	interface: 'org.example.Examples.CarInterface ))
 
 (define query-context (dbus:make-context
 	service: 'test.method.server
