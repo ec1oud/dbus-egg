@@ -15,6 +15,7 @@
 		system-bus
 		starter-bus
 		known-bus-count
+		bus-name
 		; register-path ; disabled for now due to https://bugs.call-cc.org/ticket/850
 		unsupported-type?
 		unsupported-type-signature
@@ -127,6 +128,11 @@
 (define starter-bus (foreign-value DBUS_BUS_STARTER int))
 (define dbus-service (foreign-value DBUS_SERVICE_DBUS c-string))
 (define known-bus-count (+ 1 (max session-bus system-bus starter-bus)))
+(define (bus-name bus)
+	(cond
+		[(eq? bus session-bus) (format "session bus (~a)" session-bus)]
+		[(eq? bus system-bus) (format "system bus (~a)" system-bus)]
+		[else (format "bus ~a" (car bus))]))
 
 (define-foreign-type handler-result int) ; really "DBusHandlerResult"
 (define result-handled (foreign-value DBUS_HANDLER_RESULT_HANDLED int))
@@ -703,12 +709,9 @@
 				(unless ret (set! ret
 						(tassq callbacks-table bus path iface mber) ))
 				(unless ret
-					(printf "failed to find callback for ~a ~a ~a ~a ~a~%" bus path svc iface mber)
+					(printf "failed to find callback for ~a ~a ~a ~a on ~a~%" path svc iface mber (bus-name bus))
 					(for-each (lambda (bus)
-						(cond
-							[(eq? (car bus) session-bus) (printf "session bus:~%")]
-							[(eq? (car bus) system-bus) (printf "system bus:~%")]
-							[else (printf "bus ~a:~%" (car bus))])
+						(printf "~a:~%" (bus-name bus))
 						(if (cdr bus)
 							(for-each (lambda (path)
 								(printf "   ~a~%" (car path))
@@ -756,7 +759,7 @@
 				(for-each (lambda (parm)
 					(iter-append-basic iter parm))	params)
 				(free-iter iter)
-				(and-let* ([err (make-error)]
+				(let* ([err (make-error)]
 						[reply-msg ((foreign-lambda* message-ptr ((connection-ptr conn) (message-ptr msg)
 									((c-pointer (struct "DBusError")) err))
 							;; todo: timeout comes from where?  (make-parameter) maybe
