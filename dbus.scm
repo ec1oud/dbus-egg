@@ -20,6 +20,8 @@
 		unsupported-type?
 		unsupported-type-signature
 		default-signal-handler
+		printing-signal-handler
+		dump-callback-table
 
 		make-variant
 		variant?
@@ -187,6 +189,15 @@
 
 (define default-signal-handler (make-parameter #f))
 
+(define (printing-signal-handler #!optional port)
+	(lambda (bus path svc iface mber)
+		(let ([str (format "failed to find callback for ~a ~a ~a ~a on ~a~%" path svc iface mber (bus-name bus))])
+			(if port
+				(display str port)
+				(display str)))))
+
+(define dump-callback-table)
+
 (define-foreign-type error-ptr c-pointer) ;; DBusError*
 (define-foreign-type connection-ptr c-pointer)	;; DBusConnection*
 (define-foreign-type message-ptr c-pointer)	;; DBusMessage*
@@ -316,6 +327,19 @@
 							(cdr pr))
 						(car rem-keys)
 						subtree	)))))
+
+	(set! dump-callback-table (lambda ()
+		(for-each (lambda (bus)
+			(printf "~a:~%" (bus-name (car bus)))
+			(if (cdr bus)
+				(for-each (lambda (path)
+					(printf "   ~a~%" (car path))
+					(for-each (lambda (iface)
+						(printf "    ~a~%" (car iface)) (pp (cdr iface))) (cdr path)))
+					(cdr bus))
+				(printf "   no callbacks registered~%")
+			))
+			callbacks-table)))
 
 	(define (next-context-ID) (set! context-count (+ 1 context-count)) context-count)
 
@@ -683,9 +707,8 @@
 						(tassq callbacks-table bus path iface mber) ))
 				(unless ret
 					(when (default-signal-handler)
-						((default-signal-handler) (format "failed to find callback for ~a ~a ~a ~a on ~a" path svc iface mber (bus-name bus)))))
-				ret
-			))))
+						((default-signal-handler) bus path svc iface mber)))
+				ret))))
 
 	(set! make-context (lambda (#!key (bus session-bus) service interface (path "/"))
 		(vector (next-context-ID) bus (string?->symbol service)
