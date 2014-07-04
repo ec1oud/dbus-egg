@@ -1,7 +1,7 @@
 (use (prefix dbus dbus:))
 
-(dbus:default-signal-handler (lambda (bus path svc iface mber)
-	((dbus:printing-signal-handler) bus path svc iface mber)
+(dbus:default-signal-handler (lambda (ctx mber args)
+	((dbus:printing-signal-handler) ctx mber args)
 	(dbus:dump-callback-table)))
 
 (define (turn-right) (printf "car is turning to the right~%"))

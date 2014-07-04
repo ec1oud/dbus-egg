@@ -189,12 +189,7 @@
 
 (define default-signal-handler (make-parameter #f))
 
-(define (printing-signal-handler #!optional port)
-	(lambda (bus path svc iface mber)
-		(let ([str (format "failed to find callback for ~a ~a ~a ~a on ~a~%" path svc iface mber (bus-name bus))])
-			(if port
-				(display str port)
-				(display str)))))
+(define printing-signal-handler)
 
 (define dump-callback-table)
 
@@ -340,6 +335,17 @@
 				(printf "   no callbacks registered~%")
 			))
 			callbacks-table)))
+
+	(set! printing-signal-handler (lambda (#!optional port)
+		(lambda (context mber args)
+			(let ([str (format "failed to find callback for ~a ~a ~a ~a on ~a~%"
+						(vector-ref context context-idx-path)
+						(vector-ref context context-idx-service)
+						(vector-ref context context-idx-interface)
+						mber (bus-name (vector-ref context context-idx-bus)))])
+				(if port
+					(display str port)
+					(display str))))))
 
 	(define (next-context-ID) (set! context-count (+ 1 context-count)) context-count)
 
@@ -707,7 +713,7 @@
 						(tassq callbacks-table bus path iface mber) ))
 				(unless ret
 					(when (default-signal-handler)
-						((default-signal-handler) bus path svc iface mber)))
+						((default-signal-handler) (make-context bus: bus path: path path service: svc interface: iface) mber #f)))  ;; TODO get payload (args)
 				ret))))
 
 	(set! make-context (lambda (#!key (bus session-bus) service interface (path "/"))
