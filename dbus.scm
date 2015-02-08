@@ -211,9 +211,30 @@
 
 (define discover-api-xml)
 
+(define msg-path
+	(foreign-lambda c-string "dbus_message_get_path" message-ptr))
+
+(define msg-interface
+	(foreign-lambda c-string "dbus_message_get_interface" message-ptr))
+
+(define msg-member
+	(foreign-lambda c-string "dbus_message_get_member" message-ptr))
+
+(define msg-error-name
+	(foreign-lambda c-string "dbus_message_get_error_name" message-ptr))
+
+(define msg-service
+	(foreign-lambda c-string "dbus_message_get_destination" message-ptr))
+
+(define (set-message-finalizer! o)
+	(set-finalizer! o (lambda (o)
+		(printf "===== finalizing message: ~a ~a~%" (msg-interface o) (msg-member o))
+		((foreign-lambda void "dbus_message_unref" message-ptr) o))))
+
 (define-external (C_msg_cb (bus bus) (message-ptr msg)) bool
 	(let* ([cb (find-callback bus msg)][found (procedure? cb)])
 		; (printf "got a message: ~s on bus ~a and found callback ~s~%" msg bus cb)
+		(set-message-finalizer! msg)
 		(when found
 			(cb msg))
 		found
@@ -368,15 +389,15 @@
 		(or datum
 			(abort err-str)))
 
-	;; params: path interface name
-	;; todo: garbage-collect this
-	(define make-signal (foreign-lambda message-ptr "dbus_message_new_signal"
-		c-string c-string c-string))
+	(define (make-signal path interface name)
+		(set-message-finalizer!
+			((foreign-lambda message-ptr "dbus_message_new_signal" c-string c-string c-string)
+				path interface name)))
 
-	;; params: service path interface method-name
-	;; todo: garbage-collect this
-	(define make-message (foreign-lambda message-ptr "dbus_message_new_method_call"
-		c-string c-string c-string c-string))
+	(define (make-message service path interface method-name)
+		(set-message-finalizer!
+			((foreign-lambda message-ptr "dbus_message_new_method_call"
+				c-string c-string c-string c-string) service path interface method-name)))
 
 	(define make-error
 		(foreign-lambda* (c-pointer (struct "DBusError")) ()
@@ -680,21 +701,6 @@
 		(let ([l (iter->list iter)])
 			(list->vector l)))
 
-	(define msg-path
-		(foreign-lambda c-string "dbus_message_get_path" message-ptr))
-
-	(define msg-interface
-		(foreign-lambda c-string "dbus_message_get_interface" message-ptr))
-
-	(define msg-member
-		(foreign-lambda c-string "dbus_message_get_member" message-ptr))
-
-	(define msg-error-name
-		(foreign-lambda c-string "dbus_message_get_error_name" message-ptr))
-
-	(define msg-service
-		(foreign-lambda c-string "dbus_message_get_destination" message-ptr))
-
 	(set! find-callback (lambda (bus msg)
 		(let ([path (string?->symbol (msg-path msg))]
 				[iface (string?->symbol (msg-interface msg))]
@@ -757,11 +763,11 @@
 							;; todo: timeout comes from where?  (make-parameter) maybe
 							"DBusMessage *reply;
 							reply = dbus_connection_send_with_reply_and_block(conn, msg, 5000, err);
-							dbus_message_unref(msg);
 							C_return(reply);") conn msg err) ])
 					(if reply-msg
 							(let* ([reply-iter (make-iter reply-msg)]
 										 [reply-args (iter->list reply-iter)] )
+								(set-message-finalizer! reply-msg)
 								reply-args)
 							(raise-dbus-error 'call err)))))))
 
@@ -785,7 +791,6 @@
 									"DBusPendingCall* pending;
 									dbus_connection_send_with_reply(conn, msg, &pending, -1);
 									dbus_connection_flush(conn);
-									dbus_message_unref(msg);
 									dbus_pending_call_block(pending);
 									msg = dbus_pending_call_steal_reply(pending);
 									C_return(msg);") conn msg) ]
@@ -853,7 +858,6 @@
 				{
 					//printf(\"rcv: %s\\n\", dbus_message_get_interface(msg));
 					C_msg_cb(bus, msg);
-					dbus_message_unref(msg);
 					C_return(true);		// yes there was a message
 				}
 				C_return (false);		// we polled, we came back empty-handed
@@ -898,6 +902,7 @@
 						(iter-append-basic iter ret))
 					;; send response
 					(send-impl conn response #f)
+					(set-message-finalizer! response)
 					(free-iter iter)
 					))))
 
