@@ -193,9 +193,18 @@
 
 (define dump-callback-table)
 
+(define (identity a) a)
+
 (define-foreign-type error-ptr c-pointer) ;; DBusError*
 (define-foreign-type connection-ptr c-pointer)	;; DBusConnection*
-(define-foreign-type message-ptr c-pointer)	;; DBusMessage*
+(define-foreign-type message-ptr (c-pointer "DBusMessage")
+	identity
+	(lambda (p)
+		; (printf "setting finalizer on ~a~%" p)
+		(set-finalizer! p (lambda (o)
+			; (printf "===== finalizing message: ~a~%" o)
+			((foreign-lambda void "dbus_message_unref" message-ptr) o)))))
+
 (define-foreign-type uint-ptr c-pointer)	;; dbus_uint32_t*
 (define-foreign-type message-iter-ptr c-pointer)  	;; DBusMessageIter*
 (define-foreign-type vtable-ptr c-pointer)  	;; DBusObjectPathVTable*
@@ -226,15 +235,9 @@
 (define msg-service
 	(foreign-lambda c-string "dbus_message_get_destination" message-ptr))
 
-(define (set-message-finalizer! o)
-	(set-finalizer! o (lambda (o)
-		(printf "===== finalizing message: ~a ~a~%" (msg-interface o) (msg-member o))
-		((foreign-lambda void "dbus_message_unref" message-ptr) o))))
-
 (define-external (C_msg_cb (bus bus) (message-ptr msg)) bool
 	(let* ([cb (find-callback bus msg)][found (procedure? cb)])
 		; (printf "got a message: ~s on bus ~a and found callback ~s~%" msg bus cb)
-		(set-message-finalizer! msg)
 		(when found
 			(cb msg))
 		found
@@ -390,14 +393,12 @@
 			(abort err-str)))
 
 	(define (make-signal path interface name)
-		(set-message-finalizer!
-			((foreign-lambda message-ptr "dbus_message_new_signal" c-string c-string c-string)
-				path interface name)))
+		((foreign-lambda message-ptr "dbus_message_new_signal" c-string c-string c-string)
+			path interface name))
 
 	(define (make-message service path interface method-name)
-		(set-message-finalizer!
-			((foreign-lambda message-ptr "dbus_message_new_method_call"
-				c-string c-string c-string c-string) service path interface method-name)))
+		((foreign-lambda message-ptr "dbus_message_new_method_call"
+			c-string c-string c-string c-string) service path interface method-name))
 
 	(define make-error
 		(foreign-lambda* (c-pointer (struct "DBusError")) ()
@@ -767,7 +768,6 @@
 					(if reply-msg
 							(let* ([reply-iter (make-iter reply-msg)]
 										 [reply-args (iter->list reply-iter)] )
-								(set-message-finalizer! reply-msg)
 								reply-args)
 							(raise-dbus-error 'call err)))))))
 
@@ -902,7 +902,6 @@
 						(iter-append-basic iter ret))
 					;; send response
 					(send-impl conn response #f)
-					(set-message-finalizer! response)
 					(free-iter iter)
 					))))
 
