@@ -195,18 +195,30 @@
 
 (define (identity a) a)
 
-(define-foreign-type error-ptr c-pointer) ;; DBusError*
-(define-foreign-type connection-ptr c-pointer)	;; DBusConnection*
+(define-foreign-type error-ptr (c-pointer "DBusError")
+	identity
+	(lambda (p)
+		; (printf "setting finalizer on error ~a~%" p)
+		(set-finalizer! p (lambda (o)
+			; (printf "finalizing error: ~a~%" o)
+			((foreign-lambda void "dbus_error_free" error-ptr) o)))))
+
+(define-foreign-type connection-ptr (c-pointer "DBusConnection"))
+
 (define-foreign-type message-ptr (c-pointer "DBusMessage")
 	identity
 	(lambda (p)
-		; (printf "setting finalizer on ~a~%" p)
+		; (printf "setting finalizer on message ~a~%" p)
 		(set-finalizer! p (lambda (o)
-			; (printf "===== finalizing message: ~a~%" o)
+			; (printf "finalizing message: ~a~%" o)
 			((foreign-lambda void "dbus_message_unref" message-ptr) o)))))
 
-(define-foreign-type uint-ptr c-pointer)	;; dbus_uint32_t*
-(define-foreign-type message-iter-ptr c-pointer)  	;; DBusMessageIter*
+(define-foreign-type uint-ptr (c-pointer "dbus_uint32_t"))
+
+(define-foreign-type message-iter-ptr (c-pointer "DBusMessageIter"))
+;; from the docs: "DBusMessageIter contains no allocated memory; it need not be freed,
+;; and can be copied by assignment or memcpy()."
+
 (define-foreign-type vtable-ptr c-pointer)  	;; DBusObjectPathVTable*
 
 (define (discover-services #!key (bus session-bus))
@@ -747,7 +759,7 @@
 			))))
 
 	(set! call (lambda (context name . params)
-		(let* ([service (symbol->string (vector-ref context context-idx-service))]
+		(let* ([service (symbol?->string (vector-ref context context-idx-service))]
 				[msg (make-message service
 							(symbol->string (vector-ref context context-idx-path))
 							(symbol->string (vector-ref context context-idx-interface))
