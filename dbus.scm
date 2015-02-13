@@ -47,6 +47,7 @@
 		easyffi
 		miscmacros)
 	(use srfi-18)
+	(use lolevel)
 
 #>
 	#include <dbus/dbus.h>
@@ -215,11 +216,17 @@
 
 (define-foreign-type uint-ptr (c-pointer "dbus_uint32_t"))
 
-(define-foreign-type message-iter-ptr (c-pointer "DBusMessageIter"))
+(define (message-iter->ptr iter) (make-locative iter 0))
+
 ;; from the docs: "DBusMessageIter contains no allocated memory; it need not be freed,
 ;; and can be copied by assignment or memcpy()."
+;; So we can allocate managed memory, and C functions always copy into it rather than allocating their own.
+(define-foreign-type message-iter "DBusMessageIter")
+(define (alloc-iter) (make-blob (foreign-type-size message-iter)))
 
-(define-foreign-type vtable-ptr c-pointer)  	;; DBusObjectPathVTable*
+(define-foreign-type message-iter-ptr (c-pointer message-iter))
+
+(define-foreign-type vtable-ptr (c-pointer "DBusObjectPathVTable"))
 
 (define (discover-services #!key (bus session-bus))
 	(let* ([ctxt (make-context
@@ -418,10 +425,6 @@
                   dbus_error_init(&err);
                   C_return(&err);"))
 
-	(define free-error!
-		(foreign-lambda* void (((c-pointer (struct "DBusError")) err))
-			"dbus_error_free(err);"))
-
 	(define (raise-dbus-error location err)
 		(let ((err-name
 			((foreign-lambda* c-string (((c-pointer (struct "DBusError")) err))
@@ -431,7 +434,6 @@
 		       ((foreign-lambda* c-string (((c-pointer (struct "DBusError")) err))
 					 "C_return(err->message);")
 			err)))
-		  (free-error! err)
 		  (signal
 		   (make-composite-condition
 		    (make-property-condition 'dbus-call)
@@ -579,7 +581,7 @@
 	;; could be a pair of the form (type-x . value)
 	;; in which case we will attempt to convert the value to that type for sending.
 	(define (iter-append-basic iter val)
-; (printf "iter-append-basic ~s ~s~%"	iter val)
+(printf "iter-append-basic ~s ~s~%"	iter val)
 		(cond
 			[(fixnum? val) (iter-append-basic-int iter val)]
 			[(flonum? val) (iter-append-basic-double iter val)]
@@ -594,20 +596,22 @@
 	(define free-iter (foreign-lambda* void ((message-iter-ptr i)) "free(i);"))
 
 	(define (iter-cond iter)
-		(let ([type ((foreign-lambda int "dbus_message_iter_get_arg_type"
-						message-iter-ptr) iter)] )
-			; (printf "iter-cond type ~s~%" type)
+		(let* ([iter-ptr (message-iter->ptr iter)]
+		          [type ((foreign-lambda int "dbus_message_iter_get_arg_type" message-iter-ptr) iter-ptr)])
+			(printf "iter-cond type ~s~%" (integer->char type))
 			(cond
 				[(eq? type type-string)
 					((foreign-lambda* c-string ((message-iter-ptr iter))
 						"char* ret = NULL;
 						dbus_message_iter_get_basic(iter, &ret);
-						C_return (ret);") iter)]
+printf(\"got string %s\\n\", ret);
+						C_return (ret);") iter-ptr)]
 				[(eq? type type-object-path)
 					(let ([str ((foreign-lambda* c-string ((message-iter-ptr iter))
 						"char* ret = NULL;
 						dbus_message_iter_get_basic(iter, &ret);
-						C_return (ret);") iter)])
+printf(\"got object-path %s\\n\", ret);
+						C_return (ret);") iter-ptr)])
 						(if (auto-unbox-object-paths)
 							str
 							(string->object-path str)))]
@@ -615,40 +619,48 @@
 					((foreign-lambda* bool ((message-iter-ptr iter))
 						"bool ret;
 						dbus_message_iter_get_basic(iter, &ret);
-						return (ret);") iter)]
+printf(\"got bool %d\\n\", ret);
+						return (ret);") iter-ptr)]
 				[(memq type `(,type-int32 ,type-byte
 								,type-int16 ))
 					((foreign-lambda* int ((message-iter-ptr iter))
 						"int ret = 0;
 						dbus_message_iter_get_basic(iter, &ret);
-						C_return (ret);") iter)]
+printf(\"got int %d\\n\", ret);
+						C_return (ret);") iter-ptr)]
 				[(memq type `(,type-uint32 ,type-uint16))
 					((foreign-lambda* unsigned-int ((message-iter-ptr iter))
 						"unsigned int ret = 0;
 						dbus_message_iter_get_basic(iter, &ret);
-						C_return (ret);") iter)]
+printf(\"got uint %d\\n\", ret);
+						C_return (ret);") iter-ptr)]
 				[(memq type `(,type-flonum ,type-uint64))
 					;; todo don't put 64-bit int into a flonum if there's another way
 					((foreign-lambda* double ((message-iter-ptr iter))
 						"double ret;
 						dbus_message_iter_get_basic(iter, &ret);
-						C_return (ret);") iter)]
+printf(\"got double %lf\\n\", ret);
+						C_return (ret);") iter-ptr)]
 				[(eq? type type-int64)
 					((foreign-lambda* integer64 ((message-iter-ptr iter))
 						"int64_t ret = 0;
 						dbus_message_iter_get_basic(iter, &ret);
-						C_return (ret);") iter)]
+						C_return (ret);") iter-ptr)]
 				[(eq? type type-array)
 					(let ([v  (iter->vector (make-sub-iter iter))])
+(printf "it's an array, length ~a, first element ~a~%" (vector-length v) (and (> (vector-length v) 0)(vector-ref v 0)))
 						(when (and (vector? v) (eq? 1 (vector-length v)) (unsupported-type? (vector-ref v 0)))
 							(set! v (make-vector 0)))
 						v)]
 				[(eq? type type-dict-entry)
+(printf "it's a dict-entry~%")
 					(iter->pair (make-sub-iter iter))]
 				[(eq? type type-struct)
+(printf "it's a struct~%")
 					(let ([v (iter->vector (make-sub-iter iter))])
 						(if (auto-unbox-structs) v (vector->struct v)))]
 				[(eq? type type-variant)
+(printf "it's a variant~%")
 					(if (auto-unbox-variants)
 						((make-sub-iter iter))
 						(make-variant ((make-sub-iter iter))))]
@@ -659,50 +671,44 @@
 				;; so far the DBus "invalid" type is treated the same as unsupported.
 				;; Maybe need a distinction though...
 				; [(eq? type type-invalid) ...]
-				[else (make-unsupported-type (integer->char type))] )))
+				[else
+(printf "unsupported type~%");
+					(make-unsupported-type (integer->char type))] )))
 
 	(define (make-sub-iter iter)
-		(let* ([sub ((foreign-lambda* message-iter-ptr ((message-iter-ptr iter))
-				"DBusMessageIter* i = malloc(sizeof(DBusMessageIter));
-				dbus_message_iter_recurse(iter, i);
-				C_return (i);") iter) ]
-				[has-next sub]
-				)
+		(let ([sub (alloc-iter)])
+			((foreign-lambda void "dbus_message_iter_recurse" message-iter-ptr  message-iter-ptr)
+				(message-iter->ptr iter) (message-iter->ptr sub))
 			(lambda ()
-				(if has-next
-					(let ([ret (iter-cond sub)])
-						(set! has-next ((foreign-lambda bool
-							"dbus_message_iter_next" message-iter-ptr) sub))
-						ret	)
-					(begin
-						(free-iter sub)
-						iterm)
+				(printf "sub-iter iterating: ~a~%" (message-iter->ptr sub))
+				(if ((foreign-lambda bool "dbus_message_iter_next" message-iter-ptr) (message-iter->ptr sub))
+					(begin (printf "iter_next of sub-iter successful~%")
+					(iter-cond sub) )
+					(begin (printf "sub-iter end~%")
+					iterm)
 				))))
 
 	;; iterator for reading parameters from a message
 	;; returns a lambda which provides one param at a time, terminating with (void)
 	(define (make-iter msg)
-		(let* ([iter ((foreign-lambda* message-iter-ptr ((message-ptr msg))
-				"DBusMessageIter* i = malloc(sizeof(DBusMessageIter));
-				if (!dbus_message_iter_init (msg, i))
-					i = (DBusMessageIter*)0;	// Message has no parameters
-				C_return (i);") msg) ]
-				[has-next iter]
-				)
+		(let* ([iter (alloc-iter)] [iter-ptr (message-iter->ptr iter)]
+		          [has-next ((foreign-lambda* bool ((message-ptr msg) (message-iter-ptr iter))
+							"if (!dbus_message_iter_init (msg, iter))
+								C_return (0);	// Message has no parameters
+							C_return (1);") msg iter-ptr)])
 			(lambda ()
 				(if has-next
 					(let ([ret (iter-cond iter)])
 						(set! has-next ((foreign-lambda bool
-							"dbus_message_iter_next" message-iter-ptr) iter))
-						ret	)
-					(begin
-						(free-iter iter)
-						iterm) ))))
+							"dbus_message_iter_next" message-iter-ptr) iter-ptr))
+						ret)
+					iterm) )))
 
 	;; todo maybe: rewrite to avoid the reverse
 	(define (iter->list iter)
 		(let loop ([retval '()])
 			(let ([next (iter)])
+(printf "iter->list: next ~a~%" next)
 				(if (eq? next iterm)
 					(reverse retval)
 					(loop (cons next retval))))))

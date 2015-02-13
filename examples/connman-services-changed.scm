@@ -1,4 +1,7 @@
 (use (prefix dbus dbus:))
+(dbus:auto-unbox-variants #t)
+(dbus:auto-unbox-structs #t)
+(dbus:auto-unbox-object-paths #t)
 (define (signal . parms) (pp parms))
 
 (define dbctxt (dbus:make-context
