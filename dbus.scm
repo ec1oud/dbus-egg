@@ -415,9 +415,9 @@
 
 	(define make-error
 		(foreign-lambda* (c-pointer (struct "DBusError")) ()
-		 "DBusError err;
-                  dbus_error_init(&err);
-                  C_return(&err);"))
+		 "DBusError *err = malloc(sizeof(DBusError));
+                  dbus_error_init(err);
+                  C_return(err);"))
 
 	(define free-error!
 		(foreign-lambda* void (((c-pointer (struct "DBusError")) err))
