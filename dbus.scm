@@ -56,8 +56,6 @@
 #include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
-
-static DBusError err;
 <#
 
 ;; A disjoint type to represent any kind of dbus data type
@@ -238,7 +236,6 @@ static DBusError err;
     found))
 
 (define connections '()) ;; an alist mapping bus to DBusConnection ptrs
-(define dbus-error (foreign-value "&err" c-pointer))
 ;; indices in a "context" vector
 (define context-idx-ID 0)
 (define context-idx-bus 1)
@@ -375,11 +372,12 @@ static DBusError err;
     (cond
      ((pair? conn) (cdr conn))
      (else
-      (set! conn ((foreign-lambda connection-ptr "dbus_bus_get" bus error-ptr)
-                  bus-type dbus-error))
-      (when conn
-        (set! connections (cons (cons bus-type conn) connections)))
-      conn))))
+      (let ((err (make-error)))
+        (set! conn ((foreign-lambda connection-ptr "dbus_bus_get" bus error-ptr)
+                    bus-type err))
+        (when conn
+          (set! connections (cons (cons bus-type conn) connections)))
+        conn)))))
 
 (define (conn-or-abort bus-type)
   (or (get-conn bus-type)
