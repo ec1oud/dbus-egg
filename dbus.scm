@@ -290,13 +290,13 @@ static DBusError err;
 ;; Else add the key-value pair.
 (define (asset! alist key val)
   (let ((pr (assq key alist)))
-    (if pr
-        (set-cdr! pr val)
-        (if (null? (cdar alist))
-            (set-car! alist (cons key val))
-            (begin
-              (set-cdr! alist (cons (car alist) (cdr alist)))
-              (set-car! alist (cons key val)))))))
+    (cond
+     (pr (set-cdr! pr val))
+     ((null? (cdar alist))
+      (set-car! alist (cons key val)))
+     (else
+      (set-cdr! alist (cons (car alist) (cdr alist)))
+      (set-car! alist (cons key val))))))
 
 ;; The "tree" version of assq: drills down into an assq-tree
 ;; as directed by the sequence of keys, and returns the value found.
@@ -372,14 +372,14 @@ static DBusError err;
 
 (define (get-conn bus-type)
   (let ((conn (assq bus-type connections)))
-    (if (pair? conn)
-        (set! conn (cdr conn))
-        (begin
-          (set! conn ((foreign-lambda connection-ptr "dbus_bus_get" bus error-ptr)
-                      bus-type dbus-error))
-          (when conn
-            (set! connections (cons (cons bus-type conn) connections)))))
-    conn))
+    (cond
+     ((pair? conn) (cdr conn))
+     (else
+      (set! conn ((foreign-lambda connection-ptr "dbus_bus_get" bus error-ptr)
+                  bus-type dbus-error))
+      (when conn
+        (set! connections (cons (cons bus-type conn) connections)))
+      conn))))
 
 (define (conn-or-abort bus-type)
   (or (get-conn bus-type)
@@ -675,15 +675,16 @@ static DBusError err;
                iter))
          (has-next sub))
     (lambda ()
-      (if has-next
-          (let ((ret (iter-cond sub)))
-            (set! has-next ((foreign-lambda bool
-                                "dbus_message_iter_next" message-iter-ptr)
-                            sub))
-            ret)
-          (begin
-            (free-iter sub)
-            iterm)))))
+      (cond
+       (has-next
+        (let ((ret (iter-cond sub)))
+          (set! has-next
+            ((foreign-lambda bool "dbus_message_iter_next" message-iter-ptr)
+             sub))
+          ret))
+       (else
+        (free-iter sub)
+        iterm)))))
 
 ;; iterator for reading parameters from a message
 ;; returns a lambda which provides one param at a time, terminating with (void)
@@ -696,15 +697,16 @@ static DBusError err;
                 msg))
          (has-next iter))
     (lambda ()
-      (if has-next
-          (let ((ret (iter-cond iter)))
-            (set! has-next ((foreign-lambda bool
-                                "dbus_message_iter_next" message-iter-ptr)
-                            iter))
-            ret)
-          (begin
-            (free-iter iter)
-            iterm)))))
+      (cond
+       (has-next
+        (let ((ret (iter-cond iter)))
+          (set! has-next
+            ((foreign-lambda bool "dbus_message_iter_next" message-iter-ptr)
+             iter))
+          ret))
+       (else
+        (free-iter iter)
+        iterm)))))
 
 ;; todo maybe: rewrite to avoid the reverse
 (define (iter->list iter)
