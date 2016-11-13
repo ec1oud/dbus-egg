@@ -395,7 +395,8 @@ static DBusError err;
 
 (define (make-message service path interface method-name)
   ((foreign-lambda message-ptr "dbus_message_new_method_call"
-     c-string c-string c-string c-string) service path interface method-name))
+     c-string c-string c-string c-string)
+   service path interface method-name))
 
 (define make-error
   (foreign-lambda* (c-pointer (struct "DBusError")) ()
@@ -591,7 +592,8 @@ static DBusError err;
 
 (define (iter-cond iter)
   (let ((type ((foreign-lambda int "dbus_message_iter_get_arg_type"
-                 message-iter-ptr) iter)))
+                 message-iter-ptr)
+               iter)))
     ;; (printf "iter-cond type ~s~%" type)
     (cond
      ((eq? type type-string)
@@ -613,7 +615,8 @@ static DBusError err;
       ((foreign-lambda* bool ((message-iter-ptr iter))
          "bool ret;\n"
          "dbus_message_iter_get_basic(iter, &ret);\n"
-         "return (ret);\n") iter))
+         "return (ret);\n")
+       iter))
      ((memq type `(,type-int32 ,type-byte
                                ,type-int16 ))
       ((foreign-lambda* int ((message-iter-ptr iter))
@@ -675,7 +678,8 @@ static DBusError err;
       (if has-next
           (let ((ret (iter-cond sub)))
             (set! has-next ((foreign-lambda bool
-                                "dbus_message_iter_next" message-iter-ptr) sub))
+                                "dbus_message_iter_next" message-iter-ptr)
+                            sub))
             ret)
           (begin
             (free-iter sub)
@@ -688,13 +692,15 @@ static DBusError err;
                   "DBusMessageIter* i = malloc(sizeof(DBusMessageIter));\n"
                   "if (!dbus_message_iter_init (msg, i))\n"
                   "    i = (DBusMessageIter*)0; // Message has no parameters\n"
-                  "C_return (i);\n") msg))
+                  "C_return (i);\n")
+                msg))
          (has-next iter))
     (lambda ()
       (if has-next
           (let ((ret (iter-cond iter)))
             (set! has-next ((foreign-lambda bool
-                                "dbus_message_iter_next" message-iter-ptr) iter))
+                                "dbus_message_iter_next" message-iter-ptr)
+                            iter))
             ret)
           (begin
             (free-iter iter)
@@ -910,7 +916,8 @@ static DBusError err;
   (lambda (msg)
     (let ((args (iter->list (make-iter msg)))
           (response ((foreign-lambda message-ptr
-                         "dbus_message_new_method_return" message-ptr) msg)))
+                         "dbus_message_new_method_return" message-ptr)
+                     msg)))
       (let ((ret (apply msg-cb args))
             (iter (make-iter-append response)))
         (if (pair? ret)
