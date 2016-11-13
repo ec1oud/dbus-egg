@@ -189,8 +189,7 @@ static DBusError err;
 (define-foreign-type error-ptr (c-pointer "DBusError")
   identity
   (lambda (p)
-    (set-finalizer!
-     p (lambda (o) ((foreign-lambda void "dbus_error_free" error-ptr) o)))))
+    (set-finalizer! p (foreign-lambda void "dbus_error_free" error-ptr))))
 
 (define-foreign-type connection-ptr (c-pointer "DBusConnection"))
 
