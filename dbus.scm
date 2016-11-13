@@ -832,16 +832,16 @@
   (c-pointer dbus_internal_pad4 vtable-dbus_internal_pad4))
 
 (define (make-vtable cb unreg-cb)
-  (let ()
-    (define (fn conn msg user-data)
-      ;; (printf "fixin' to call ~a with ~a, ~a, ~a~%" cb conn msg user-data)
-      (let ((ret (cb conn msg user-data)))
-        ;; TODO: return ret as the result
-        result-handled ))
-    (let ((ret (make-vtable-impl)))
-      (vtable-message_function-set! ret fn)
-      (vtable-unregister_function-set! ret unreg-cb)
-      ret)))
+  (define (fn conn msg user-data)
+    ;; (printf "fixin' to call ~a with ~a, ~a, ~a~%" cb conn msg user-data)
+    (let ((ret (cb conn msg user-data)))
+      ;; TODO: return ret as the result
+      result-handled))
+  (let ((ret (make-vtable-impl)))
+    ;;XXX: illegal conversion of scheme closure to c-pointer (issue #5)
+    (vtable-message_function-set! ret fn)
+    (vtable-unregister_function-set! ret unreg-cb)
+    ret))
 
 ;; (set! add-match-self (lambda ()
 ;; ((foreign-safe-lambda void "dbus_bus_add_match" connection-ptr c-string error-ptr)
