@@ -42,12 +42,12 @@
      object-path->string
      auto-unbox-object-paths)
 
-(import scheme chicken extras
-        (except foreign foreign-declare)
-        foreigners
-        miscmacros)
+(import scheme chicken foreign)
 
-(use srfi-18)
+(use (srfi 18)
+     extras
+     foreigners
+     miscmacros)
 
 #>
 #include <dbus/dbus.h>
