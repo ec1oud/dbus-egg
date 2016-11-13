@@ -45,7 +45,6 @@
 (import scheme chicken extras
         (except foreign foreign-declare)
         foreigners
-        easyffi
         miscmacros)
 
 (use srfi-18)
