@@ -209,9 +209,10 @@
 	identity
 	(lambda (p)
 		; (printf "setting finalizer on message ~a~%" p)
+		(when p
 		(set-finalizer! p (lambda (o)
 			; (printf "finalizing message: ~a~%" o)
-			((foreign-lambda void "dbus_message_unref" message-ptr) o)))))
+			((foreign-lambda void "dbus_message_unref" message-ptr) o))))))
 
 (define-foreign-type uint-ptr (c-pointer "dbus_uint32_t"))
 
