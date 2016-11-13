@@ -197,8 +197,7 @@ static DBusError err;
   identity
   (lambda (p)
     (when p
-      (set-finalizer!
-       p (lambda (o) ((foreign-lambda void "dbus_message_unref" message-ptr) o))))))
+      (set-finalizer! p (foreign-lambda void "dbus_message_unref" message-ptr)))))
 
 (define-foreign-type uint-ptr (c-pointer "dbus_uint32_t"))
 
