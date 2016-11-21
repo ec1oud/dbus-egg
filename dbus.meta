@@ -5,5 +5,4 @@
  (license "MIT")
  (depends miscmacros foreigners)
  (doc-from-wiki)
- (author "Shawn Rutledge")
- (files "dbus.meta" "dbus.release-info" "doc/api.txt" "examples/send-car-turn.scm" "examples/receive-car-turn.scm" "examples/introspect-phonekit.scm" "examples/send-signal.scm" "examples/send-example-query.scm" "examples/introspect-services.scm" "examples/listen-example.scm" "examples/receive-signal.scm" "examples/introspect-hal.scm" "examples/introspect-avahi.scm" "examples/paranoid-android.scm" "dbus.setup" "dbus.scm"))
+ (author "Shawn Rutledge"))
