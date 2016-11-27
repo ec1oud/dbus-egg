@@ -895,8 +895,9 @@
                     (lambda ()
                       (let loop ()
                         ;; (printf "polling~%")
-                        (poll-for-message bus: bus timeout: 0)
-                        (thread-sleep! (vector-ref polling-interval bus))
+                        (if (poll-for-message bus: bus timeout: 0)
+                            (thread-yield!)
+                            (thread-sleep! (vector-ref polling-interval bus)))
                         (when (vector-ref polling-enabled bus) (loop)))))))))
 
 (define (enable-polling-thread! #!key (bus session-bus) (enable #t)
