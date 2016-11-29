@@ -5,4 +5,5 @@
  (license "MIT")
  (depends miscmacros foreigners)
  (doc-from-wiki)
- (author "Shawn Rutledge"))
+ (author "Shawn Rutledge")
+ (maintainer "John J. Foerch"))
