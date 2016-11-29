@@ -17,7 +17,6 @@
      starter-bus
      known-bus-count
      bus-name
-     ;; register-path ;; disabled for now due to https://bugs.call-cc.org/ticket/850
      unsupported-type?
      unsupported-type-signature
      default-signal-handler
@@ -201,8 +200,6 @@
 (define-foreign-type message-iter-ptr (c-pointer "DBusMessageIter"))
 ;; from the docs: "DBusMessageIter contains no allocated memory; it need not be freed,
 ;; and can be copied by assignment or memcpy()."
-
-(define-foreign-type vtable-ptr c-pointer) ;; DBusObjectPathVTable*
 
 (define (discover-services #!key (bus session-bus))
   (let* ((ctxt (make-context bus: bus
@@ -821,28 +818,6 @@
                    (reply-args (iter->list reply-iter)))
           reply-args)))))
 
-(define-foreign-record-type (vtable "struct DBusObjectPathVTable")
-  (constructor: make-vtable-impl)
-  (destructor: free-vtable)
-  (c-pointer unregister_function vtable-unregister_function vtable-unregister_function-set!)
-  (c-pointer message_function vtable-message_function vtable-message_function-set!)
-  (c-pointer dbus_internal_pad1 vtable-dbus_internal_pad1)
-  (c-pointer dbus_internal_pad2 vtable-dbus_internal_pad2)
-  (c-pointer dbus_internal_pad3 vtable-dbus_internal_pad3)
-  (c-pointer dbus_internal_pad4 vtable-dbus_internal_pad4))
-
-(define (make-vtable cb unreg-cb)
-  (define (fn conn msg user-data)
-    ;; (printf "fixin' to call ~a with ~a, ~a, ~a~%" cb conn msg user-data)
-    (let ((ret (cb conn msg user-data)))
-      ;; TODO: return ret as the result
-      result-handled))
-  (let ((ret (make-vtable-impl)))
-    ;;XXX: illegal conversion of scheme closure to c-pointer (issue #5)
-    (vtable-message_function-set! ret fn)
-    (vtable-unregister_function-set! ret unreg-cb)
-    ret))
-
 ;; (set! add-match-self (lambda ()
 ;; ((foreign-safe-lambda void "dbus_bus_add_match" connection-ptr c-string error-ptr)
 ;; (get-conn (vector-ref context context-idx-bus)) rule #f)))
@@ -959,20 +934,6 @@
            (vector-ref context context-idx-interface)
            (string?->symbol name))
   (start-polling! (vector-ref context context-idx-bus) default-polling-interval))
-
-;; dbus_bool_t dbus_connection_register_object_path
-;; (DBusConnection              *connection,
-;;  const char                  *path,
-;;  const DBusObjectPathVTable  *vtable,
-;;  void                        *user_data);
-(define (register-path bus path fn unreg-fn)
-  ;; (let ((unreg-fn (lambda (parm . rest) #f)))
-  ((foreign-safe-lambda bool "dbus_connection_register_object_path"
-     connection-ptr c-string vtable-ptr c-pointer)
-   (conn-or-abort bus)
-   (symbol?->string path)
-   (make-vtable fn unreg-fn)
-   #f))
 
 (define (discover-api-xml ctxt)
   (let ((ctxt (list->vector (vector->list ctxt)))) ;; todo: efficiency?
