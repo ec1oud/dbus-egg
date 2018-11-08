@@ -195,8 +195,6 @@
 
 (define default-signal-handler (make-parameter #f))
 
-(define (identity a) a)
-
 (define-foreign-type error-ptr (c-pointer "DBusError")
   identity
   (lambda (p)
