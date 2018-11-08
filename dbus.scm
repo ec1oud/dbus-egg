@@ -92,7 +92,7 @@
 (define-record-printer (object-path d out)
   (fprintf out "#<object-path ~s>" (object-path->string d)))
 
-(define auto-unbox-object-paths (make-parameter #f))
+(define auto-unbox-object-paths (make-parameter #t))
 
 
 ;; Scheme is a dynamically typed language, so fundamentally we don't
@@ -113,7 +113,7 @@
 ;; you want to send (marshall) a dbus message.  But probably
 ;; you want to turn it on for convenience, if you don't care to know
 ;; about this low-level detail.
-(define auto-unbox-variants (make-parameter #f))
+(define auto-unbox-variants (make-parameter #t))
 
 
 ;; A DBus struct is represented as a vector, but it's tagged for marshalling
@@ -137,7 +137,7 @@
 ;; By default this feature is turned off, in the interest of having a
 ;; representation that is the same as you will need to build when
 ;; you want to send (marshall) a dbus message.
-(define auto-unbox-structs (make-parameter #f))
+(define auto-unbox-structs (make-parameter #t))
 
 
 ;; Would want to do this:
