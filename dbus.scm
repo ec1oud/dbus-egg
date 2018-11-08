@@ -22,6 +22,7 @@
      default-signal-handler
      printing-signal-handler
      dump-callback-table
+     get-property
 
      make-variant
      variant?
@@ -954,4 +955,20 @@
     (let ((xml (call ctxt "Introspect")))
       (and (pair? xml) (car xml)))))
 
-) ;; end module
+(define (get-property context prop)
+  (let* ((bus (vector-ref context context-idx-bus))
+         (service (vector-ref context context-idx-service))
+         (path (vector-ref context context-idx-path))
+         (old-interface (vector-ref context context-idx-interface))
+         (context
+          (make-context
+           bus: bus
+           service: service
+           path: path
+           interface: 'org.freedesktop.DBus.Properties))
+         (raw
+          (handle-exceptions err #f
+            (call context "Get" (symbol?->string old-interface) (symbol?->string prop)))))
+    (and raw (car raw))))
+
+  ) ;; end module
