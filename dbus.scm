@@ -22,6 +22,7 @@
      default-signal-handler
      printing-signal-handler
      dump-callback-table
+     get-property
 
      make-variant
      variant?
@@ -41,12 +42,27 @@
      object-path->string
      auto-unbox-object-paths)
 
-(import scheme chicken foreign)
+(import scheme)
 
-(use (srfi 18)
-     extras
-     foreigners
-     miscmacros)
+(cond-expand
+  (chicken-5
+   (import (chicken base)
+           (chicken foreign)
+           (chicken format)
+           (chicken gc)
+           (chicken condition)
+           (chicken pretty-print)
+           (srfi 18)
+           foreigners
+           miscmacros))
+  (else
+   (import chicken foreign)
+   (use (srfi 18)
+        extras
+        foreigners
+        miscmacros)))
+
+
 
 #>
 #include <dbus/dbus.h>
@@ -77,7 +93,7 @@
 (define-record-printer (object-path d out)
   (fprintf out "#<object-path ~s>" (object-path->string d)))
 
-(define auto-unbox-object-paths (make-parameter #f))
+(define auto-unbox-object-paths (make-parameter #t))
 
 
 ;; Scheme is a dynamically typed language, so fundamentally we don't
@@ -98,7 +114,7 @@
 ;; you want to send (marshall) a dbus message.  But probably
 ;; you want to turn it on for convenience, if you don't care to know
 ;; about this low-level detail.
-(define auto-unbox-variants (make-parameter #f))
+(define auto-unbox-variants (make-parameter #t))
 
 
 ;; A DBus struct is represented as a vector, but it's tagged for marshalling
@@ -122,7 +138,7 @@
 ;; By default this feature is turned off, in the interest of having a
 ;; representation that is the same as you will need to build when
 ;; you want to send (marshall) a dbus message.
-(define auto-unbox-structs (make-parameter #f))
+(define auto-unbox-structs (make-parameter #t))
 
 
 ;; Would want to do this:
@@ -179,8 +195,6 @@
 (define type-struct-end (foreign-value DBUS_STRUCT_END_CHAR int))
 
 (define default-signal-handler (make-parameter #f))
-
-(define (identity a) a)
 
 (define-foreign-type error-ptr (c-pointer "DBusError")
   identity
@@ -941,4 +955,20 @@
     (let ((xml (call ctxt "Introspect")))
       (and (pair? xml) (car xml)))))
 
-) ;; end module
+(define (get-property context prop)
+  (let* ((bus (vector-ref context context-idx-bus))
+         (service (vector-ref context context-idx-service))
+         (path (vector-ref context context-idx-path))
+         (old-interface (vector-ref context context-idx-interface))
+         (context
+          (make-context
+           bus: bus
+           service: service
+           path: path
+           interface: 'org.freedesktop.DBus.Properties))
+         (raw
+          (handle-exceptions err #f
+            (call context "Get" (symbol?->string old-interface) (symbol?->string prop)))))
+    (and raw (car raw))))
+
+  ) ;; end module
