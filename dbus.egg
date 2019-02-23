@@ -8,4 +8,4 @@
                     (link-options "-L" "`pkg-config --libs dbus-1`"))
  (components
   (extension dbus (source "dbus.scm")))
- (version "0.95"))
+ (version "0.96"))
