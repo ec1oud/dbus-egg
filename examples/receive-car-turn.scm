@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken format))
 
 (dbus:default-signal-handler (lambda (ctx mber args)
 	((dbus:printing-signal-handler) ctx mber args)

@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken pretty-print))
 
 (define (device-properties device)
   (let ((c (dbus:make-context

@@ -4,7 +4,7 @@
 ;; Well actually it should walk rather than roll...
 ;; but the remote-control API can still be the same
 
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken format))
 
 (define (turn-right) (printf "rolls eyes and turns to the right~%"))
 (define (turn-left) (printf "rolls eyes and turns to the left~%"))

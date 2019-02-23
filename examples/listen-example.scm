@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken format))
 
 (define (query . params)
 	(printf "got a query; params: ~s~%" params)

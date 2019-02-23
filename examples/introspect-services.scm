@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken format) (chicken pretty-print))
 
 ;; the actual dbus call to get known service names:
 ; (define ctxt (dbus:make-context

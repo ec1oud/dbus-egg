@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:))
 
 (define ctxt (dbus:make-context	interface: 'language.english path: '/humanity))
 

@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken format))
 
 (define ctxt (dbus:make-context
 	service: 'test.method.server

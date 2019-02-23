@@ -1,6 +1,7 @@
 ;; example by Mario Goulart to monitor DeviceAdded notification from udisks daemon
 ;; this uses the older API; udisks2 is different
-(use extras dbus)
+(import dbus)
+(import (chicken pretty-print))
 
 ;; dbus returns #(#<unsupported-type >) to represent empty container
 ;; values

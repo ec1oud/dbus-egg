@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken format))
 (define (signal . parms) (pp parms))
 
 (define dbctxt (dbus:make-context

@@ -1,5 +1,4 @@
-;(use dbus)
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken format) (chicken pretty-print))
 
 (define connman-bus dbus:system-bus) ;; in real life
 ; (define connman-bus dbus:session-bus) ;; for connman-simulator without root privs

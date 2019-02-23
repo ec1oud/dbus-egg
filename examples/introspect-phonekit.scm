@@ -1,4 +1,4 @@
-(use (prefix dbus dbus:))
+(import (prefix dbus dbus:) (chicken pretty-print))
 
 (define ctxt (dbus:make-context
 	service: 'org.openmoko.PhoneKit
