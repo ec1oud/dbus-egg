@@ -100,7 +100,7 @@
 ;; have a use for the "variant" concept; but since dbus has a variant type,
 ;; we need a way of representing one when preparing a message for marshalling.
 (define-record-type variant
-  (make-variant #!optional data)
+  (make-variant data)
   variant?
   (data variant-data))
 
