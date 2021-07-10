@@ -2,5 +2,5 @@
 ;; Chicken 5 does not support versions of this egg older than 0.96
 
 (repo git "git://github.com/ec1oud/dbus-egg.git")
-(uri targz "https://github.com/ec1oud/dbus-egg/tarball/{egg-release}")
-(release "0.96")
+(uri targz "https://github.com/ec1oud/dbus-egg/archive/refs/tags/{egg-release}.tar.gz")
+(release "0.97")
