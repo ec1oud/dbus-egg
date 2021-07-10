@@ -7,7 +7,7 @@
 
 (define ethernet-props
 	`(#(("Type" . ,(dbus:make-variant "ethernet"))
-	   ("Security" . ,(dbus:make-variant))
+	   ("Security" . ,(dbus:make-variant #f))
 	   ("State" . ,(dbus:make-variant "online"))
 	   ("Favorite" . ,(dbus:make-variant #t))
 	   ("Immutable" . ,(dbus:make-variant #f))
@@ -24,15 +24,15 @@
 		  ("Address" . ,(dbus:make-variant "10.0.0.148"))
 		  ("Netmask" . ,(dbus:make-variant "255.255.255.0")))))
 	   ("IPv4.Configuration" . ,(dbus:make-variant `#(("Method" . ,(dbus:make-variant "dhcp")))))
-	   ("IPv6" . ,(dbus:make-variant))
+	   ("IPv6" . ,(dbus:make-variant #f))
 	   ("IPv6.Configuration" . ,(dbus:make-variant `#(("Method" . ,(dbus:make-variant "auto")) ("Privacy" . ,(dbus:make-variant "disabled")))))
 	   ("Nameservers" . ,(dbus:make-variant '#("10.0.0.1")))
-	   ("Nameservers.Configuration" . ,(dbus:make-variant))
+	   ("Nameservers.Configuration" . ,(dbus:make-variant #f))
 	   ("Domains" . ,(dbus:make-variant '#("lan")))
-	   ("Domains.Configuration" . ,(dbus:make-variant))
+	   ("Domains.Configuration" . ,(dbus:make-variant #f))
 	   ("Proxy" . ,(dbus:make-variant `#(("Method" . ,(dbus:make-variant "direct")))))
-	   ("Proxy.Configuration" . ,(dbus:make-variant))
-	   ("Provider" . ,(dbus:make-variant)))) )
+	   ("Proxy.Configuration" . ,(dbus:make-variant #f))
+	   ("Provider" . ,(dbus:make-variant #f)))) )
 
 (define manager-techs
 `(#(,(dbus:make-struct (dbus:string->object-path "/net/connman/technology/wifi")
